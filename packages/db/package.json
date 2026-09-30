@@ -1,0 +1,38 @@
+{
+  "name": "@keyzen/db",
+  "version": "0.1.0",
+  "description": "Supabase PostgreSQL Database Schema and Drizzle ORM client for Keyzen",
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs",
+      "require": "./dist/index.js"
+    },
+    "./schema": {
+      "types": "./dist/schema/index.d.ts",
+      "import": "./dist/schema/index.mjs",
+      "require": "./dist/schema/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts src/schema/index.ts --format cjs,esm --dts",
+    "dev": "tsup src/index.ts src/schema/index.ts --format cjs,esm --dts --watch",
+    "generate": "drizzle-kit generate",
+    "migrate": "drizzle-kit migrate",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "drizzle-orm": "^0.33.0",
+    "postgres": "^3.4.4"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "drizzle-kit": "^0.24.2",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4"
+  }
+}
