@@ -2,6 +2,26 @@
   "name": "keyzen",
   "version": "0.1.0",
   "private": true,
+  "description": "Developer secrets management with AES-256-GCM envelope encryption and zero-disk secret injection",
+  "license": "MIT",
+  "author": "KS Nithin <nithin30302@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nithin0620/keyzen.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Nithin0620/keyzen/issues"
+  },
+  "homepage": "https://github.com/Nithin0620/keyzen#readme",
+  "keywords": [
+    "secrets",
+    "secrets-management",
+    "encryption",
+    "aes-256-gcm",
+    "envelope-encryption",
+    "developer-tools",
+    "monorepo"
+  ],
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",

@@ -1,0 +1,40 @@
+name: Feature request
+description: Suggest an idea or improvement for Keyzen
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What are you trying to accomplish? Describe the pain point, not just the solution.
+      placeholder: Running a service locally requires a .env file that keeps getting committed to the repo.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: A sketch of the API, CLI syntax, or UI you have in mind.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Crypto engine
+        - Backend API
+        - CLI
+        - Node SDK
+        - Web dashboard
+        - Developer experience
+        - Documentation
+    validations:
+      required: true

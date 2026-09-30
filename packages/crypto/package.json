@@ -2,6 +2,28 @@
   "name": "@keyzen/crypto",
   "version": "0.1.0",
   "description": "AES-256-GCM Envelope Encryption and Key Management for Keyzen",
+  "license": "MIT",
+  "author": "KS Nithin <nithin30302@gmail.com>",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Nithin0620/keyzen.git",
+    "directory": "packages/crypto"
+  },
+  "homepage": "https://github.com/Nithin0620/keyzen/tree/master/packages/crypto#readme",
+  "bugs": {
+    "url": "https://github.com/Nithin0620/keyzen/issues"
+  },
+  "keywords": [
+    "aes-256-gcm",
+    "envelope-encryption",
+    "hkdf",
+    "key-derivation",
+    "encryption"
+  ],
+  "sideEffects": false,
+  "files": [
+    "dist"
+  ],
   "main": "./dist/index.js",
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

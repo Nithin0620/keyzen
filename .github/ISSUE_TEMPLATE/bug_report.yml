@@ -1,0 +1,72 @@
+name: Bug report
+description: Report a reproducible bug in Keyzen
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not report security vulnerabilities here.** Follow [SECURITY.md](https://github.com/Nithin0620/keyzen/blob/master/SECURITY.md) instead.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Description
+      description: What happened, and what did you expect to happen?
+      placeholder: Keyzen fails to decrypt a secret when the auth tag is present but the AAD is missing.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Configure a project with ...
+        2. Run `keyzen run ...`
+        3. Observe the error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error output
+      description: Paste relevant logs or error messages. Scrub any secrets first.
+      render: shell
+
+  - type: input
+    id: package
+    attributes:
+      label: Affected component
+      placeholder: "@keyzen/crypto, @keyzen/api, CLI, dashboard, ..."
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: v0.1.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      options:
+        - Node.js 20
+        - Node.js 22
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues and this has not been reported
+          required: true
+        - label: I removed all secrets and credentials from the logs above
+          required: true
