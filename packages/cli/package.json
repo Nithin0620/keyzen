@@ -1,0 +1,31 @@
+{
+  "name": "@keyzen/cli",
+  "version": "0.1.0",
+  "description": "Developer CLI for Keyzen Secret Manager",
+  "bin": {
+    "keyzen": "./dist/bin.js"
+  },
+  "main": "./dist/bin.js",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@keyzen/node": "workspace:*",
+    "chalk": "^4.1.2",
+    "commander": "^12.1.0",
+    "conf": "^12.0.0",
+    "dotenv": "^16.4.5",
+    "execa": "^8.0.1",
+    "ora": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/chalk": "^2.2.0",
+    "@types/node": "^22.5.4",
+    "tsup": "^8.2.4",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}
