@@ -1,0 +1,33 @@
+{
+  "name": "@keyzen/api",
+  "version": "0.1.0",
+  "description": "Fastify + Apollo Server GraphQL & REST Secrets Engine API for Keyzen",
+  "main": "./dist/server.js",
+  "scripts": {
+    "build": "tsup src/server.ts --format esm --dts",
+    "dev": "tsx watch src/server.ts",
+    "start": "node dist/server.mjs",
+    "test": "vitest run",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@apollo/server": "^4.11.0",
+    "@as-integrations/fastify": "^2.1.1",
+    "@fastify/cors": "^9.0.1",
+    "@fastify/helmet": "^11.1.1",
+    "@fastify/rate-limit": "^9.1.0",
+    "@keyzen/crypto": "workspace:*",
+    "@keyzen/db": "workspace:*" ,
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "graphql": "^16.9.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.4",
+    "tsup": "^8.2.4",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.1.1"
+  }
+}
