@@ -107,6 +107,21 @@ importers:
         specifier: ^5.5.4
         version: 5.9.3
 
+  packages/sdk-node:
+    devDependencies:
+      '@types/node':
+        specifier: ^22.5.4
+        version: 22.20.4
+      tsup:
+        specifier: ^8.2.4
+        version: 8.5.1(postcss@8.5.28)(tsx@4.23.15)(typescript@5.9.3)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.1.1
+        version: 2.1.9(@types/node@22.20.4)
+
 packages:
 
   '@apollo/cache-control-types@1.0.3':
