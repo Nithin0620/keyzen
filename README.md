@@ -128,3 +128,26 @@ console.log(process.env.DATABASE_URL);
 - **No Plaintext in DB:** Supabase only stores `ciphertext`, `iv`, and `auth_tag`.
 - **Envelope Encryption:** Project keys are derived via HKDF-SHA256 from a root Master Key and unique project identifiers.
 - **Strict Separation:** GraphQL metadata queries only return key names and version history; decrypted values require privileged calls with immutable audit logs.
+
+---
+
+## 📜 Project Status
+
+Keyzen is under active development. The crypto engine, database schema, backend API, Node SDK, and CLI are implemented and passing tests. Expect breaking changes.
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and conventions, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community guidelines.
+
+**Do not open a public issue for security vulnerabilities** — follow [SECURITY.md](SECURITY.md) instead.
+
+---
+
+## 📄 License
+
+Released under the [MIT License](LICENSE).
+
+Copyright © 2026 KS Nithin
+
