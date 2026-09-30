@@ -61,24 +61,24 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
   // New Token form state
   const [newTokenName, setNewTokenName] = useState('');
 
-  // Initial mock secrets data
+  // Initial mock secrets data (placeholder values for the dashboard demo only)
   const [secretsList, setSecretsList] = useState<Record<string, SecretItem[]>>({
     prod: [
-      { id: '1', name: 'DATABASE_URL', value: 'postgresql://postgres:p_x8712a@aws.supabase.co:5432/keyzen_prod', version: 3, updatedAt: '10 mins ago', comment: 'Supabase Postgres connection pooler' },
-      { id: '2', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_0000', version: 1, updatedAt: '1 hour ago', comment: 'Stripe production secret key' },
-      { id: '3', name: 'OPENAI_API_KEY', value: 'sk-placeholder-0000', version: 2, updatedAt: 'Yesterday', comment: 'GPT-4o production agent key' },
+      { id: '1', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@db.example.com:5432/keyzen_prod', version: 3, updatedAt: '10 mins ago', comment: 'Postgres connection pooler' },
+      { id: '2', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_0000', version: 1, updatedAt: '1 hour ago', comment: 'Stripe secret key' },
+      { id: '3', name: 'OPENAI_API_KEY', value: 'sk-placeholder-0000', version: 2, updatedAt: 'Yesterday', comment: 'GPT-4o agent key' },
       { id: '4', name: 'RESEND_API_KEY', value: 're_placeholder_0000', version: 1, updatedAt: '3 days ago', comment: 'Transactional email provider' },
-      { id: '5', name: 'JWT_SIGNING_SECRET', value: 'super_secure_jwt_signing_secret_key_2026', version: 4, updatedAt: 'Sep 28, 2026', comment: 'Auth token encryption key' },
+      { id: '5', name: 'JWT_SIGNING_SECRET', value: 'placeholder_jwt_signing_secret', version: 4, updatedAt: 'Sep 28, 2026', comment: 'Auth token encryption key' },
     ],
     staging: [
-      { id: '6', name: 'DATABASE_URL', value: 'postgresql://postgres:staging_pass@staging.supabase.co:5432/db', version: 1, updatedAt: '2 days ago' },
+      { id: '6', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@db.example.com:5432/keyzen_staging', version: 1, updatedAt: '2 days ago' },
       { id: '7', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_1111', version: 1, updatedAt: '2 days ago' },
       { id: '8', name: 'OPENAI_API_KEY', value: 'sk-placeholder-1111', version: 1, updatedAt: '2 days ago' },
     ],
     dev: [
-      { id: '9', name: 'DATABASE_URL', value: 'postgresql://postgres:postgres@localhost:5432/workflow_dev', version: 1, updatedAt: '1 week ago' },
-      { id: '10', name: 'STRIPE_SECRET_KEY', value: 'sk_test_local_dummy_key_1234', version: 1, updatedAt: '1 week ago' },
-      { id: '11', name: 'OPENAI_API_KEY', value: 'sk-dummy-dev-openai-key', version: 1, updatedAt: '1 week ago' },
+      { id: '9', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@localhost:5432/keyzen_dev', version: 1, updatedAt: '1 week ago' },
+      { id: '10', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_2222', version: 1, updatedAt: '1 week ago' },
+      { id: '11', name: 'OPENAI_API_KEY', value: 'sk-placeholder-2222', version: 1, updatedAt: '1 week ago' },
     ],
   });
 
