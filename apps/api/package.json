@@ -1,14 +1,16 @@
 {
   "name": "@keyzen/api",
   "version": "0.1.0",
-  "description": "Fastify + Apollo Server GraphQL & REST Secrets Engine API for Keyzen",
+  "description": "Fastify Node.js & Cloudflare Worker Edge Secrets Engine for Keyzen",
   "main": "./dist/server.js",
   "scripts": {
     "build": "tsup src/server.ts --format esm --dts",
     "dev": "tsx watch src/server.ts",
     "start": "node dist/server.mjs",
     "test": "vitest run",
-    "clean": "rm -rf dist"
+    "worker:dev": "wrangler dev src/worker.ts",
+    "worker:deploy": "wrangler deploy src/worker.ts",
+    "clean": "rm -rf dist .wrangler"
   },
   "dependencies": {
     "@apollo/server": "^4.11.0",
@@ -17,17 +19,21 @@
     "@fastify/helmet": "^11.1.1",
     "@fastify/rate-limit": "^9.1.0",
     "@keyzen/crypto": "workspace:*",
-    "@keyzen/db": "workspace:*" ,
+    "@keyzen/db": "workspace:*",
     "dotenv": "^16.4.5",
     "fastify": "^4.28.1",
     "graphql": "^16.9.0",
+    "graphql-yoga": "^5.7.0",
+    "hono": "^4.5.11",
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240909.0",
     "@types/node": "^22.5.4",
     "tsup": "^8.2.4",
     "tsx": "^4.19.0",
     "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "vitest": "^2.1.1",
+    "wrangler": "^3.75.0"
   }
 }
