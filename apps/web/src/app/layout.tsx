@@ -1,13 +1,17 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { Providers } from '../components/providers';
-import { Navbar } from '../components/navbar';
 
 export const metadata: Metadata = {
   title: 'Keyzen | Developer Secrets Management Platform',
   description: 'Zero-disk, envelope-encrypted developer secrets platform with GraphQL & CLI integration',
 };
 
+/**
+ * Root layout — only wraps with global styles + providers.
+ * The app shell (Navbar + main container) lives in (app)/layout.tsx
+ * so that the (auth) route group can render full-screen without it.
+ */
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -16,14 +20,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="bg-black text-foreground antialiased selection:bg-accent/30 selection:text-white">
-        <Providers>
-          <div className="min-h-screen flex flex-col">
-            <Navbar />
-            <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
-              {children}
-            </main>
-          </div>
-        </Providers>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

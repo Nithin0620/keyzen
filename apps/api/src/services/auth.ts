@@ -1,6 +1,13 @@
+import jwt from 'jsonwebtoken';
 import { hashToken } from '@keyzen/crypto';
-import { createDatabaseClient, serviceTokens, environments, projects, orgMembers, eq, and } from '@keyzen/db';
+import {
+  createDatabaseClient,
+  serviceTokens,
+  environments,
+  eq,
+} from '@keyzen/db';
 import { FastifyRequest } from 'fastify';
+import { config } from '../config';
 
 export interface AuthContext {
   type: 'USER' | 'SERVICE_TOKEN' | 'ANONYMOUS';
@@ -13,6 +20,35 @@ export interface AuthContext {
     environmentId: string;
     environmentSlug: string;
   };
+}
+
+/**
+ * Payload shape of the JWT issued by Workflow's /api/v1/auth/login.
+ * Signed with NEXTAUTH_SECRET (= config.WORKFLOW_AUTH_SECRET here).
+ */
+interface WorkflowJwtPayload {
+  id: string;
+  email: string;
+  name?: string;
+  iat?: number;
+  exp?: number;
+}
+
+/**
+ * Attempt to verify a Bearer token as a Workflow-issued JWT.
+ * Returns the payload if valid, null if the token is invalid/expired or
+ * the secret is not configured.
+ */
+function verifyWorkflowJwt(token: string): WorkflowJwtPayload | null {
+  const secret = config.WORKFLOW_AUTH_SECRET;
+  if (!secret) return null;
+
+  try {
+    const payload = jwt.verify(token, secret) as WorkflowJwtPayload;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 export async function authenticateRequest(
@@ -29,7 +65,7 @@ export async function authenticateRequest(
     return { type: 'ANONYMOUS' };
   }
 
-  // 1. Check if token is a Keyzen Service Token (kzn_...)
+  // ── 1. Keyzen service token (kzn_…) ──────────────────────────────────────
   if (token.startsWith('kzn_')) {
     const tokenHash = hashToken(token);
     const [foundToken] = await db
@@ -46,15 +82,13 @@ export async function authenticateRequest(
       .where(eq(serviceTokens.tokenHash, tokenHash))
       .limit(1);
 
-    if (!foundToken) {
-      return { type: 'ANONYMOUS' };
-    }
+    if (!foundToken) return { type: 'ANONYMOUS' };
 
     if (foundToken.expiresAt && new Date(foundToken.expiresAt) < new Date()) {
       return { type: 'ANONYMOUS' };
     }
 
-    // Update lastUsedAt asynchronously
+    // Update lastUsedAt asynchronously (fire-and-forget)
     db.update(serviceTokens)
       .set({ lastUsedAt: new Date() })
       .where(eq(serviceTokens.id, foundToken.id))
@@ -73,14 +107,25 @@ export async function authenticateRequest(
     };
   }
 
-  // 2. Otherwise assume user authentication (e.g. Supabase JWT or User Header)
-  // In dev / demo, extract custom user header or pass through user ID
-  const userId = (req.headers['x-user-id'] as string) || 'default-user-id';
-  const userEmail = (req.headers['x-user-email'] as string) || 'admin@keyzen.dev';
+  // ── 2. Workflow-issued JWT (shared NEXTAUTH_SECRET) ───────────────────────
+  const workflowUser = verifyWorkflowJwt(token);
+  if (workflowUser) {
+    return {
+      type: 'USER',
+      userId: workflowUser.id,
+      userEmail: workflowUser.email,
+    };
+  }
 
-  return {
-    type: 'USER',
-    userId,
-    userEmail,
-  };
+  // ── 3. Dev fallback (only when WORKFLOW_AUTH_SECRET is not set) ───────────
+  // This should never be reachable in production.
+  if (config.NODE_ENV !== 'production' && !config.WORKFLOW_AUTH_SECRET) {
+    const userId =
+      (req.headers['x-user-id'] as string) || 'default-user-id';
+    const userEmail =
+      (req.headers['x-user-email'] as string) || 'admin@keyzen.dev';
+    return { type: 'USER', userId, userEmail };
+  }
+
+  return { type: 'ANONYMOUS' };
 }
