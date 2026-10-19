@@ -98,7 +98,7 @@ export const typeDefs = `#graphql
   type Query {
     organizations: [Organization!]!
     organization(slug: String!): Organization
-    project(orgSlug: String!, projectSlug: String!): Project
+    project(projectSlug: String!, orgSlug: String): Project
     auditLogs(projectId: ID, limit: Int): [AuditLogEntry!]!
     revealSecret(projectId: ID!, environmentSlug: String!, secretName: String!): RevealedSecret!
   }

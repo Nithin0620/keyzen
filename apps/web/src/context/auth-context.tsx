@@ -26,6 +26,7 @@ interface AuthContextValue {
   /** true while the initial token check is running */
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginDev: () => Promise<void>;
   register: (name: string, email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
 }
@@ -79,6 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(newUser);
   }, []);
 
+  const loginDev = useCallback(async () => {
+    const { loginAsDev } = await import('@/lib/auth');
+    const { token: newToken, user: newUser } = await loginAsDev();
+    setToken(newToken);
+    setUser(newUser);
+  }, []);
+
   const register = useCallback(
     async (name: string, email: string, password: string) => {
       const { token: newToken, user: newUser } = await registerWithWorkflow({
@@ -101,8 +109,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [token]);
 
   const value = useMemo(
-    () => ({ user, token, loading, login, register, logout }),
-    [user, token, loading, login, register, logout]
+    () => ({ user, token, loading, login, loginDev, register, logout }),
+    [user, token, loading, login, loginDev, register, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

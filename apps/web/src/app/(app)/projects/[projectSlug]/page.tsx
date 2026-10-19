@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useQuery, useMutation, useLazyQuery } from '@apollo/client';
 import {
   ArrowLeft,
   Key,
@@ -21,90 +22,167 @@ import {
   Clock,
   Sparkles,
   AlertCircle,
-  FileCode,
+  Loader2,
+  Calendar,
 } from 'lucide-react';
+import {
+  GET_PROJECT_DETAILS,
+  CREATE_SECRET,
+  DELETE_SECRET,
+  REVEAL_SECRET,
+  CREATE_SERVICE_TOKEN,
+  REVOKE_SERVICE_TOKEN,
+} from '@/lib/graphql-operations';
 
-interface SecretItem {
+interface ProjectEnvironment {
   id: string;
   name: string;
-  comment?: string;
-  value: string;
-  revealed?: boolean;
-  version: number;
-  updatedAt: string;
+  slug: string;
+  secretCount: number;
 }
 
-interface ServiceTokenItem {
+interface SecretMetadata {
+  id: string;
+  projectId: string;
+  name: string;
+  comment?: string;
+  createdAt: string;
+  updatedAt: string;
+  hasValueInEnvs: string[];
+}
+
+interface ServiceTokenSummary {
   id: string;
   name: string;
-  prefix: string;
-  env: string;
+  environmentId: string;
+  environmentName: string;
+  tokenPrefix: string;
   createdBy: string;
   lastUsedAt?: string;
+  expiresAt?: string;
   createdAt: string;
+}
+
+interface OrgMember {
+  id: string;
+  userId: string;
+  email: string;
+  name?: string;
+  role: string;
+  createdAt: string;
+}
+
+interface AuditLogEntry {
+  id: string;
+  actorType: string;
+  actorId: string;
+  actorName?: string;
+  action: string;
+  metadata?: string;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+interface ProjectDetailsResponse {
+  organizations: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    members: OrgMember[];
+  }>;
+  project: {
+    id: string;
+    orgId: string;
+    name: string;
+    slug: string;
+    description?: string;
+    createdAt: string;
+    environments: ProjectEnvironment[];
+    secrets: SecretMetadata[];
+    serviceTokens: ServiceTokenSummary[];
+  } | null;
+  auditLogs: AuditLogEntry[];
 }
 
 export default function ProjectSecretsPage({ params }: { params: { projectSlug: string } }) {
   const [activeTab, setActiveTab] = useState<'secrets' | 'tokens' | 'audit' | 'team'>('secrets');
-  const [activeEnv, setActiveEnv] = useState<'dev' | 'staging' | 'prod'>('prod');
+  const [activeEnv, setActiveEnv] = useState<string>('prod');
   const [searchQuery, setSearchQuery] = useState('');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+
+  // Modals state
   const [showAddSecretModal, setShowAddSecretModal] = useState(false);
   const [showAddTokenModal, setShowAddTokenModal] = useState(false);
   const [newGeneratedToken, setNewGeneratedToken] = useState<string | null>(null);
 
-  // New Secret form state
+  // Form states
   const [newSecretName, setNewSecretName] = useState('');
   const [newSecretValue, setNewSecretValue] = useState('');
   const [newSecretComment, setNewSecretComment] = useState('');
-
-  // New Token form state
   const [newTokenName, setNewTokenName] = useState('');
+  const [modalError, setModalError] = useState<string | null>(null);
 
-  // Initial mock secrets data (placeholder values for the dashboard demo only)
-  const [secretsList, setSecretsList] = useState<Record<string, SecretItem[]>>({
-    prod: [
-      { id: '1', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@db.example.com:5432/keyzen_prod', version: 3, updatedAt: '10 mins ago', comment: 'Postgres connection pooler' },
-      { id: '2', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_0000', version: 1, updatedAt: '1 hour ago', comment: 'Stripe secret key' },
-      { id: '3', name: 'OPENAI_API_KEY', value: 'sk-placeholder-0000', version: 2, updatedAt: 'Yesterday', comment: 'GPT-4o agent key' },
-      { id: '4', name: 'RESEND_API_KEY', value: 're_placeholder_0000', version: 1, updatedAt: '3 days ago', comment: 'Transactional email provider' },
-      { id: '5', name: 'JWT_SIGNING_SECRET', value: 'placeholder_jwt_signing_secret', version: 4, updatedAt: 'Sep 28, 2026', comment: 'Auth token encryption key' },
-    ],
-    staging: [
-      { id: '6', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@db.example.com:5432/keyzen_staging', version: 1, updatedAt: '2 days ago' },
-      { id: '7', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_1111', version: 1, updatedAt: '2 days ago' },
-      { id: '8', name: 'OPENAI_API_KEY', value: 'sk-placeholder-1111', version: 1, updatedAt: '2 days ago' },
-    ],
-    dev: [
-      { id: '9', name: 'DATABASE_URL', value: 'postgresql://user:placeholder@localhost:5432/keyzen_dev', version: 1, updatedAt: '1 week ago' },
-      { id: '10', name: 'STRIPE_SECRET_KEY', value: 'sk_test_PLACEHOLDER_2222', version: 1, updatedAt: '1 week ago' },
-      { id: '11', name: 'OPENAI_API_KEY', value: 'sk-placeholder-2222', version: 1, updatedAt: '1 week ago' },
-    ],
+  // Decrypted revealed secrets cache: { [secretName_env]: decryptedPlaintext }
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [revealingSecret, setRevealingSecret] = useState<string | null>(null);
+
+  // Fetch live project data
+  const { data, loading, error, refetch } = useQuery<ProjectDetailsResponse>(GET_PROJECT_DETAILS, {
+    variables: { projectSlug: params.projectSlug },
+    fetchPolicy: 'cache-and-network',
+    onCompleted: (res) => {
+      // Set active environment if not set
+      if (res.project?.environments?.length) {
+        const hasCurrent = res.project.environments.some((e) => e.slug === activeEnv);
+        if (!hasCurrent) {
+          setActiveEnv(res.project.environments[0].slug);
+        }
+      }
+    },
   });
 
-  // Service Tokens
-  const [tokens, setTokens] = useState<ServiceTokenItem[]>([
-    { id: 'tok-1', name: 'GitHub Actions Production CI', prefix: 'kzn_prod_a98f12...', env: 'prod', createdBy: 'nithin@keyzen.dev', lastUsedAt: '5 mins ago', createdAt: 'Sep 20, 2026' },
-    { id: 'tok-2', name: 'Local Dev CLI - Nithin', prefix: 'kzn_dev_b12c89...', env: 'dev', createdBy: 'nithin@keyzen.dev', lastUsedAt: 'Just now', createdAt: 'Sep 25, 2026' },
-    { id: 'tok-3', name: 'Staging Auto-Deployer', prefix: 'kzn_staging_d44e71...', env: 'staging', createdBy: 'rahul@keyzen.dev', lastUsedAt: '2 hours ago', createdAt: 'Sep 28, 2026' },
-  ]);
+  // Lazy query for decrypting secret
+  const [revealSecretQuery] = useLazyQuery(REVEAL_SECRET, {
+    fetchPolicy: 'no-cache',
+  });
 
-  // Audit Logs
-  const [auditLogs] = useState([
-    { id: 'log-1', actor: 'Local Dev CLI - Nithin', type: 'SERVICE_TOKEN', action: 'SECRET_RESOLVE_BATCH', env: 'dev', time: 'Just now', ip: '127.0.0.1', details: 'Resolved 3 secrets for CLI runtime' },
-    { id: 'log-2', actor: 'nithin@keyzen.dev', type: 'USER', action: 'SECRET_REVEAL', env: 'prod', time: '8 mins ago', ip: '192.168.1.45', details: 'Revealed plaintext for STRIPE_SECRET_KEY' },
-    { id: 'log-3', actor: 'GitHub Actions Production CI', type: 'SERVICE_TOKEN', action: 'SECRET_RESOLVE_BATCH', env: 'prod', time: '1 hour ago', ip: '140.82.112.4', details: 'Resolved 5 secrets for deployment build' },
-    { id: 'log-4', actor: 'nithin@keyzen.dev', type: 'USER', action: 'SECRET_UPDATE', env: 'prod', time: '1 hour ago', ip: '192.168.1.45', details: 'Updated value for DATABASE_URL (v3)' },
-  ]);
+  // Mutations
+  const [createSecretMutation, { loading: creatingSecret }] = useMutation(CREATE_SECRET, {
+    refetchQueries: [{ query: GET_PROJECT_DETAILS, variables: { projectSlug: params.projectSlug } }],
+    onCompleted: () => {
+      setShowAddSecretModal(false);
+      setNewSecretName('');
+      setNewSecretValue('');
+      setNewSecretComment('');
+      setModalError(null);
+    },
+    onError: (err) => setModalError(err.message),
+  });
 
-  const toggleReveal = (id: string) => {
-    setSecretsList((prev) => ({
-      ...prev,
-      [activeEnv]: prev[activeEnv].map((s) =>
-        s.id === id ? { ...s, revealed: !s.revealed } : s
-      ),
-    }));
-  };
+  const [deleteSecretMutation] = useMutation(DELETE_SECRET, {
+    refetchQueries: [{ query: GET_PROJECT_DETAILS, variables: { projectSlug: params.projectSlug } }],
+  });
+
+  const [createServiceTokenMutation, { loading: creatingToken }] = useMutation(CREATE_SERVICE_TOKEN, {
+    refetchQueries: [{ query: GET_PROJECT_DETAILS, variables: { projectSlug: params.projectSlug } }],
+    onCompleted: (res) => {
+      setNewGeneratedToken(res.createServiceToken.token);
+      setModalError(null);
+    },
+    onError: (err) => setModalError(err.message),
+  });
+
+  const [revokeServiceTokenMutation] = useMutation(REVOKE_SERVICE_TOKEN, {
+    refetchQueries: [{ query: GET_PROJECT_DETAILS, variables: { projectSlug: params.projectSlug } }],
+  });
+
+  const project = data?.project;
+  const environments = project?.environments || [];
+  const secrets = project?.secrets || [];
+  const tokens = project?.serviceTokens || [];
+  const auditLogs = data?.auditLogs || [];
+  const org = data?.organizations?.[0];
+  const members = org?.members || [];
 
   const copyToClipboard = (text: string, keyId: string) => {
     navigator.clipboard.writeText(text);
@@ -112,399 +190,559 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
-  const handleAddSecret = (e: React.FormEvent) => {
+  const handleToggleReveal = async (secretName: string) => {
+    if (!project) return;
+    const cacheKey = `${secretName}_${activeEnv}`;
+
+    if (revealedSecrets[cacheKey] !== undefined) {
+      // Toggle off
+      setRevealedSecrets((prev) => {
+        const next = { ...prev };
+        delete next[cacheKey];
+        return next;
+      });
+      return;
+    }
+
+    setRevealingSecret(secretName);
+    try {
+      const res = await revealSecretQuery({
+        variables: {
+          projectId: project.id,
+          environmentSlug: activeEnv,
+          secretName,
+        },
+      });
+
+      if (res.data?.revealSecret?.value) {
+        setRevealedSecrets((prev) => ({
+          ...prev,
+          [cacheKey]: res.data.revealSecret.value,
+        }));
+      }
+    } catch (err: unknown) {
+      alert(`Failed to decrypt secret: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setRevealingSecret(null);
+    }
+  };
+
+  const handleAddSecret = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newSecretName || !newSecretValue) return;
+    if (!project) return;
+    if (!newSecretName.trim() || !newSecretValue.trim()) {
+      setModalError('Secret name and value are required');
+      return;
+    }
 
-    const newSecret: SecretItem = {
-      id: Math.random().toString(),
-      name: newSecretName.toUpperCase().trim(),
-      value: newSecretValue,
-      comment: newSecretComment.trim() || undefined,
-      version: 1,
-      updatedAt: 'Just now',
-      revealed: false,
-    };
-
-    setSecretsList((prev) => ({
-      ...prev,
-      [activeEnv]: [newSecret, ...prev[activeEnv]],
-    }));
-
-    setNewSecretName('');
-    setNewSecretValue('');
-    setNewSecretComment('');
-    setShowAddSecretModal(false);
+    await createSecretMutation({
+      variables: {
+        input: {
+          projectId: project.id,
+          name: newSecretName.trim().toUpperCase(),
+          comment: newSecretComment.trim() || undefined,
+          values: [
+            {
+              environmentSlug: activeEnv,
+              value: newSecretValue.trim(),
+            },
+          ],
+        },
+      },
+    });
   };
 
-  const handleDeleteSecret = (id: string) => {
-    setSecretsList((prev) => ({
-      ...prev,
-      [activeEnv]: prev[activeEnv].filter((s) => s.id !== id),
-    }));
+  const handleDeleteSecret = async (secretName: string) => {
+    if (!project) return;
+    if (!confirm(`Are you sure you want to permanently delete secret "${secretName}"?`)) return;
+
+    await deleteSecretMutation({
+      variables: {
+        projectId: project.id,
+        secretName,
+      },
+    });
   };
 
-  const handleCreateToken = (e: React.FormEvent) => {
+  const handleCreateToken = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newTokenName) return;
+    if (!project) return;
+    if (!newTokenName.trim()) {
+      setModalError('Token name is required');
+      return;
+    }
 
-    const rawToken = `kzn_${activeEnv}_${Math.random().toString(36).substring(2, 15)}${Math.random().toString(36).substring(2, 15)}`;
-    const newToken: ServiceTokenItem = {
-      id: Math.random().toString(),
-      name: newTokenName,
-      prefix: rawToken.slice(0, 16) + '...',
-      env: activeEnv,
-      createdBy: 'nithin@keyzen.dev',
-      lastUsedAt: 'Never',
-      createdAt: 'Just now',
-    };
-
-    setTokens((prev) => [newToken, ...prev]);
-    setNewGeneratedToken(rawToken);
-    setNewTokenName('');
+    await createServiceTokenMutation({
+      variables: {
+        input: {
+          projectId: project.id,
+          environmentSlug: activeEnv,
+          name: newTokenName.trim(),
+        },
+      },
+    });
   };
 
-  const filteredSecrets = (secretsList[activeEnv] || []).filter((s) =>
+  const handleRevokeToken = async (tokenId: string, tokenName: string) => {
+    if (!confirm(`Are you sure you want to revoke service token "${tokenName}"? Any deployment or CLI using it will lose access.`)) return;
+
+    await revokeServiceTokenMutation({
+      variables: { tokenId },
+    });
+  };
+
+  // Filter secrets by search query
+  const filteredSecrets = secrets.filter((s) =>
     s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     (s.comment && s.comment.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
-  return (
-    <div className="space-y-6">
-      {/* Top Breadcrumb & Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-4">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/"
-            className="p-1.5 rounded-lg bg-surface-100 border border-border text-muted hover:text-white transition-colors"
+  if (loading && !project) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[50vh] space-y-4">
+        <Loader2 className="h-8 w-8 text-accent animate-spin" />
+        <p className="text-sm font-mono text-muted">Connecting to PostgreSQL & loading project…</p>
+      </div>
+    );
+  }
+
+  if (error || !project) {
+    return (
+      <div className="space-y-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Projects
+        </Link>
+        <div className="p-8 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 space-y-3">
+          <AlertCircle className="h-6 w-6" />
+          <h2 className="text-base font-semibold text-white">Project Not Found</h2>
+          <p className="text-xs text-muted max-w-md">
+            Could not locate project &quot;{params.projectSlug}&quot; in your organization. {error ? error.message : ''}
+          </p>
+          <button
+            onClick={() => refetch()}
+            className="px-3.5 py-1.5 rounded-lg bg-surface-100 border border-border text-xs text-white hover:bg-surface-50"
           >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-8">
+      {/* Header & Breadcrumb */}
+      <div className="space-y-4 border-b border-border pb-6">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs text-muted hover:text-white transition-colors"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          Back to Projects
+        </Link>
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-white capitalize">
-                {params.projectSlug.replace('-', ' ')}
-              </h1>
-              <span className="px-2 py-0.5 rounded text-[11px] font-mono bg-surface-100 text-muted border border-border">
-                /{params.projectSlug}
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-bold tracking-tight text-white">{project.name}</h1>
+              <span className="font-mono text-xs px-2.5 py-0.5 rounded-full bg-surface-100 border border-border text-muted">
+                /{project.slug}
+              </span>
+              <span className="flex items-center gap-1.5 text-xs font-mono px-2 py-0.5 rounded bg-accent/10 border border-accent/20 text-accent">
+                <Shield className="h-3 w-3" />
+                Live AES-256-GCM
               </span>
             </div>
-            <p className="text-xs text-muted mt-0.5">
-              Envelope encryption active with per-project AES-256-GCM data encryption keys.
-            </p>
+            <p className="text-sm text-muted mt-1">{project.description || 'Secure environment secrets'}</p>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refetch()}
+              className="p-2 rounded-lg border border-border bg-surface-100 text-muted hover:text-white transition-colors"
+              title="Refresh project data"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            </button>
+            {activeTab === 'secrets' && (
+              <button
+                onClick={() => {
+                  setShowAddSecretModal(true);
+                  setModalError(null);
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors shadow-sm glow-green-sm"
+              >
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                Add Secret ({activeEnv.toUpperCase()})
+              </button>
+            )}
+            {activeTab === 'tokens' && (
+              <button
+                onClick={() => {
+                  setShowAddTokenModal(true);
+                  setNewGeneratedToken(null);
+                  setModalError(null);
+                }}
+                className="flex items-center gap-2 px-3.5 py-2 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors shadow-sm glow-green-sm"
+              >
+                <Plus className="h-4 w-4 stroke-[2.5]" />
+                Generate Service Token
+              </button>
+            )}
           </div>
         </div>
 
-        {/* Feature Tabs */}
-        <div className="flex items-center gap-1 p-1 rounded-lg bg-surface-200 border border-border">
+        {/* Tabs Bar */}
+        <div className="flex items-center gap-6 pt-2 text-sm">
           <button
             onClick={() => setActiveTab('secrets')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'secrets' ? 'bg-surface-50 text-white shadow-sm' : 'text-muted hover:text-white'
+            className={`pb-2.5 border-b-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'secrets'
+                ? 'border-accent text-white'
+                : 'border-transparent text-muted hover:text-white'
             }`}
           >
-            <Lock className="h-3.5 w-3.5 text-accent" />
+            <Lock className="h-4 w-4" />
             Secrets
+            <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-surface-100 border border-border text-muted">
+              {secrets.length}
+            </span>
           </button>
+
           <button
             onClick={() => setActiveTab('tokens')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'tokens' ? 'bg-surface-50 text-white shadow-sm' : 'text-muted hover:text-white'
+            className={`pb-2.5 border-b-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'tokens'
+                ? 'border-accent text-white'
+                : 'border-transparent text-muted hover:text-white'
             }`}
           >
-            <Key className="h-3.5 w-3.5 text-accent" />
+            <Key className="h-4 w-4" />
             Service Tokens
+            <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-surface-100 border border-border text-muted">
+              {tokens.length}
+            </span>
           </button>
+
           <button
             onClick={() => setActiveTab('audit')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'audit' ? 'bg-surface-50 text-white shadow-sm' : 'text-muted hover:text-white'
+            className={`pb-2.5 border-b-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'audit'
+                ? 'border-accent text-white'
+                : 'border-transparent text-muted hover:text-white'
             }`}
           >
-            <Activity className="h-3.5 w-3.5 text-accent" />
+            <Activity className="h-4 w-4" />
             Audit Logs
           </button>
+
           <button
             onClick={() => setActiveTab('team')}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors ${
-              activeTab === 'team' ? 'bg-surface-50 text-white shadow-sm' : 'text-muted hover:text-white'
+            className={`pb-2.5 border-b-2 font-medium transition-colors flex items-center gap-2 ${
+              activeTab === 'team'
+                ? 'border-accent text-white'
+                : 'border-transparent text-muted hover:text-white'
             }`}
           >
-            <UserCheck className="h-3.5 w-3.5 text-accent" />
-            RBAC Team
+            <UserCheck className="h-4 w-4" />
+            Team & RBAC
+            <span className="ml-1 text-xs px-1.5 py-0.5 rounded bg-surface-100 border border-border text-muted">
+              {members.length}
+            </span>
           </button>
         </div>
       </div>
 
-      {/* TAB 1: SECRETS MANAGER */}
+      {/* ─── TAB 1: SECRETS ────────────────────────────────────────────────────────── */}
       {activeTab === 'secrets' && (
-        <div className="space-y-4">
-          {/* Controls Bar */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-surface-200 p-3 rounded-xl border border-border">
-            {/* Environment Selector */}
-            <div className="flex items-center gap-1.5">
-              {(['prod', 'staging', 'dev'] as const).map((env) => (
+        <div className="space-y-6">
+          {/* Controls: Environment Picker + Search */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            {/* Environment Tabs */}
+            <div className="flex items-center gap-1.5 bg-surface-200 border border-border p-1 rounded-lg">
+              {environments.map((env) => (
                 <button
-                  key={env}
-                  onClick={() => setActiveEnv(env)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-mono font-medium transition-all ${
-                    activeEnv === env
+                  key={env.id}
+                  onClick={() => setActiveEnv(env.slug)}
+                  className={`px-3 py-1.5 rounded-md text-xs font-mono uppercase transition-all flex items-center gap-1.5 ${
+                    activeEnv === env.slug
                       ? 'bg-accent text-black font-semibold shadow-sm'
-                      : 'bg-surface-100 text-muted border border-border hover:text-white hover:border-border/80'
+                      : 'text-muted hover:text-white'
                   }`}
                 >
-                  {env.toUpperCase()}
-                  <span className="ml-1.5 text-[10px] opacity-80">
-                    ({secretsList[env]?.length || 0})
+                  <span>{env.slug}</span>
+                  <span className={`text-[10px] px-1 rounded ${activeEnv === env.slug ? 'bg-black/20 text-black' : 'bg-surface-100 text-muted'}`}>
+                    {env.secretCount}
                   </span>
                 </button>
               ))}
             </div>
 
-            {/* Search & Add */}
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
-                <input
-                  type="text"
-                  placeholder="Search keys or comments..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 bg-black border border-border rounded-lg text-xs text-white placeholder-muted-dark focus:outline-none focus:border-accent w-48 sm:w-64"
-                />
-              </div>
-
-              <button
-                onClick={() => setShowAddSecretModal(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
-              >
-                <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-                Add Secret
-              </button>
+            {/* Search Bar */}
+            <div className="relative w-full sm:w-72">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted" />
+              <input
+                type="text"
+                placeholder="Filter secrets in this env…"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-9 pr-3 py-1.5 bg-surface-200 border border-border rounded-lg text-xs text-white placeholder-muted focus:outline-none focus:border-accent font-mono"
+              />
             </div>
           </div>
 
           {/* Secrets Table */}
           <div className="rounded-xl border border-border bg-surface-200 overflow-hidden">
-            <div className="grid grid-cols-12 px-4 py-2.5 bg-surface-100 border-b border-border text-[11px] font-mono text-muted uppercase tracking-wider">
-              <div className="col-span-4">Key Name</div>
-              <div className="col-span-5">Value (AES-256 Encrypted)</div>
-              <div className="col-span-1 text-center">Ver</div>
-              <div className="col-span-2 text-right">Actions</div>
+            <div className="p-4 border-b border-border bg-surface-300 flex items-center justify-between text-xs font-mono text-muted">
+              <span>KEY / VARIABLE</span>
+              <div className="flex items-center gap-8">
+                <span>ENCRYPTED VALUE</span>
+                <span className="w-24 text-right">ACTIONS</span>
+              </div>
             </div>
 
-            <div className="divide-y divide-border/60">
-              {filteredSecrets.length === 0 ? (
-                <div className="p-8 text-center text-xs text-muted font-mono">
-                  No secrets found in {activeEnv.toUpperCase()} environment.
-                </div>
-              ) : (
-                filteredSecrets.map((secret) => (
-                  <div
-                    key={secret.id}
-                    className="grid grid-cols-12 px-4 py-3 items-center hover:bg-surface-100/50 transition-colors text-xs"
-                  >
-                    {/* Key Name & Comment */}
-                    <div className="col-span-4 space-y-0.5 pr-2">
-                      <div className="font-mono font-semibold text-white flex items-center gap-1.5">
-                        <Lock className="h-3 w-3 text-accent shrink-0" />
-                        <span className="truncate">{secret.name}</span>
-                      </div>
-                      {secret.comment && (
-                        <p className="text-[11px] text-muted truncate">{secret.comment}</p>
-                      )}
-                    </div>
+            {filteredSecrets.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Lock className="h-8 w-8 text-muted mx-auto" />
+                <h3 className="text-sm font-semibold text-white">No Secrets in {activeEnv.toUpperCase()}</h3>
+                <p className="text-xs text-muted max-w-sm mx-auto">
+                  Add encrypted API keys, tokens, or environment credentials for your services.
+                </p>
+                <button
+                  onClick={() => setShowAddSecretModal(true)}
+                  className="px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
+                >
+                  Add Secret
+                </button>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {filteredSecrets.map((secret) => {
+                  const cacheKey = `${secret.name}_${activeEnv}`;
+                  const isRevealed = revealedSecrets[cacheKey] !== undefined;
+                  const decryptedVal = revealedSecrets[cacheKey] || '';
+                  const hasValueInActiveEnv = secret.hasValueInEnvs.includes(activeEnv);
+                  const isRevealing = revealingSecret === secret.name;
 
-                    {/* Value */}
-                    <div className="col-span-5 pr-2">
-                      <div className="font-mono bg-black/80 border border-border px-2.5 py-1.5 rounded-md flex items-center justify-between text-xs">
-                        <span className="truncate text-muted-foreground select-all">
-                          {secret.revealed ? (
-                            <span className="text-accent font-medium">{secret.value}</span>
-                          ) : (
-                            '••••••••••••••••••••••••••••••••'
+                  return (
+                    <div
+                      key={secret.id}
+                      className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-surface-100 transition-colors"
+                    >
+                      {/* Name & Comments */}
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-semibold text-white">
+                            {secret.name}
+                          </span>
+                          {!hasValueInActiveEnv && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20">
+                              Missing in {activeEnv}
+                            </span>
                           )}
-                        </span>
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <button
-                            onClick={() => toggleReveal(secret.id)}
-                            className="p-1 hover:text-white text-muted transition-colors rounded"
-                            title={secret.revealed ? 'Hide value' : 'Reveal decrypted value'}
-                          >
-                            {secret.revealed ? (
-                              <EyeOff className="h-3.5 w-3.5" />
-                            ) : (
-                              <Eye className="h-3.5 w-3.5" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => copyToClipboard(secret.value, secret.id)}
-                            className="p-1 hover:text-white text-muted transition-colors rounded"
-                            title="Copy plaintext to clipboard"
-                          >
-                            {copiedKey === secret.id ? (
-                              <Check className="h-3.5 w-3.5 text-accent" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5" />
-                            )}
-                          </button>
                         </div>
+                        {secret.comment && (
+                          <p className="text-[11px] text-muted">{secret.comment}</p>
+                        )}
+                      </div>
+
+                      {/* Value & Actions */}
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-2 bg-black border border-border px-3 py-1.5 rounded-lg min-w-[260px] max-w-sm justify-between">
+                          <span className="font-mono text-xs text-muted truncate">
+                            {isRevealed
+                              ? decryptedVal
+                              : '••••••••••••••••••••••••••••••••'}
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {hasValueInActiveEnv && (
+                              <button
+                                onClick={() => handleToggleReveal(secret.name)}
+                                disabled={isRevealing}
+                                className="p-1 text-muted hover:text-white rounded"
+                                title={isRevealed ? 'Hide secret' : 'Reveal plaintext value'}
+                              >
+                                {isRevealing ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />
+                                ) : isRevealed ? (
+                                  <EyeOff className="h-3.5 w-3.5 text-accent" />
+                                ) : (
+                                  <Eye className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+
+                            {isRevealed && (
+                              <button
+                                onClick={() => copyToClipboard(decryptedVal, secret.id)}
+                                className="p-1 text-muted hover:text-white rounded"
+                                title="Copy decrypted value"
+                              >
+                                {copiedKey === secret.id ? (
+                                  <Check className="h-3.5 w-3.5 text-accent" />
+                                ) : (
+                                  <Copy className="h-3.5 w-3.5" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Delete Action */}
+                        <button
+                          onClick={() => handleDeleteSecret(secret.name)}
+                          className="p-1.5 text-muted hover:text-red-400 hover:bg-surface-300 rounded transition-colors"
+                          title="Delete secret"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
-
-                    {/* Version Badge */}
-                    <div className="col-span-1 text-center">
-                      <span className="inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-medium bg-surface-100 border border-border text-muted">
-                        v{secret.version}
-                      </span>
-                    </div>
-
-                    {/* Actions */}
-                    <div className="col-span-2 flex items-center justify-end gap-2 text-right">
-                      <button
-                        onClick={() => handleDeleteSecret(secret.id)}
-                        className="p-1.5 text-muted hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
-                        title="Delete secret"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 2: SERVICE TOKENS */}
+      {/* ─── TAB 2: SERVICE TOKENS ─────────────────────────────────────────────────── */}
       {activeTab === 'tokens' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-surface-200 p-4 rounded-xl border border-border">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm font-semibold text-white">Service Tokens</h2>
               <p className="text-xs text-muted mt-0.5">
-                Scoped authentication tokens for GitHub Actions, CI/CD runners, and developers CLI sessions.
+                Machine authentication credentials for CI/CD, CLI zero-disk injection, and serverless workers.
               </p>
             </div>
             <button
               onClick={() => {
-                setNewGeneratedToken(null);
                 setShowAddTokenModal(true);
+                setNewGeneratedToken(null);
+                setModalError(null);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
             >
-              <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
+              <Plus className="h-4 w-4" />
               Generate Token
             </button>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border/60">
-            {tokens.map((token) => (
-              <div key={token.id} className="p-4 flex items-center justify-between hover:bg-surface-100/50 transition-colors">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm text-white">{token.name}</span>
-                    <span className="px-1.5 py-0.5 rounded text-[10px] uppercase font-mono font-medium bg-accent/10 text-accent border border-accent/20">
-                      {token.env}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted font-mono">
-                    <span>{token.prefix}</span>
-                    <span>•</span>
-                    <span>Created by {token.createdBy}</span>
-                    <span>•</span>
-                    <span>Last used: {token.lastUsedAt}</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={() => setTokens(tokens.filter((t) => t.id !== token.id))}
-                  className="px-2.5 py-1 text-xs text-red-400 hover:bg-red-500/10 border border-red-500/20 rounded-md transition-colors"
-                >
-                  Revoke
-                </button>
+          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border">
+            {tokens.length === 0 ? (
+              <div className="p-12 text-center space-y-3">
+                <Key className="h-8 w-8 text-muted mx-auto" />
+                <h3 className="text-sm font-semibold text-white">No Service Tokens</h3>
+                <p className="text-xs text-muted max-w-sm mx-auto">
+                  Generate tokens with scoped environment access for zero-disk secret injection.
+                </p>
               </div>
-            ))}
+            ) : (
+              tokens.map((token) => (
+                <div
+                  key={token.id}
+                  className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 hover:bg-surface-100 transition-colors"
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-xs text-white">{token.name}</span>
+                      <span className="font-mono text-[10px] uppercase px-1.5 py-0.5 rounded bg-surface-100 border border-border text-accent">
+                        {token.environmentName}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-[11px] text-muted font-mono">
+                      <span>Prefix: {token.tokenPrefix}</span>
+                      <span>By: {token.createdBy}</span>
+                      {token.lastUsedAt && <span>Last used: {token.lastUsedAt}</span>}
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => handleRevokeToken(token.id, token.name)}
+                    className="px-3 py-1 rounded-lg border border-red-500/20 text-red-400 text-xs hover:bg-red-500/10 transition-colors self-start sm:self-center"
+                  >
+                    Revoke
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 3: AUDIT TRAIL */}
+      {/* ─── TAB 3: AUDIT LOGS ──────────────────────────────────────────────────────── */}
       {activeTab === 'audit' && (
         <div className="space-y-4">
-          <div className="bg-surface-200 p-4 rounded-xl border border-border">
-            <h2 className="text-sm font-semibold text-white">Cryptographic Audit Trail</h2>
-            <p className="text-xs text-muted mt-0.5">
-              Append-only audit logs recording every secret resolution, reveal, and token operation.
-            </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Security & Access Audit Trail</h2>
+            <span className="text-xs text-muted font-mono">Live PostgreSQL Audit Log</span>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border/60">
-            {auditLogs.map((log) => (
-              <div key={log.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-surface-100/50 transition-colors">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono text-xs text-accent font-semibold">{log.action}</span>
-                    <span className="px-1.5 py-0.2 rounded text-[10px] uppercase font-mono bg-surface-100 text-muted border border-border">
-                      {log.env}
-                    </span>
-                    <span className="text-xs text-white">{log.actor}</span>
-                  </div>
-                  <p className="text-xs text-muted font-mono">{log.details}</p>
-                </div>
-
-                <div className="flex items-center gap-3 text-xs text-muted-foreground font-mono">
-                  <span>IP: {log.ip}</span>
-                  <span>•</span>
-                  <span>{log.time}</span>
-                </div>
+          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border">
+            {auditLogs.length === 0 ? (
+              <div className="p-12 text-center text-xs text-muted">
+                No audit logs recorded yet.
               </div>
-            ))}
+            ) : (
+              auditLogs.map((log) => (
+                <div key={log.id} className="p-4 flex items-start justify-between gap-4 text-xs font-mono">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-accent">{log.action}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-surface-100 text-muted border border-border">
+                        {log.actorType}
+                      </span>
+                      <span className="text-white">{log.actorName || log.actorId}</span>
+                    </div>
+                    {log.metadata && (
+                      <p className="text-[11px] text-muted">{log.metadata}</p>
+                    )}
+                  </div>
+                  <div className="text-right text-[11px] text-muted shrink-0 space-y-0.5">
+                    <div>{log.createdAt}</div>
+                    {log.ipAddress && <div>IP: {log.ipAddress}</div>}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* TAB 4: RBAC TEAM */}
+      {/* ─── TAB 4: TEAM ────────────────────────────────────────────────────────────── */}
       {activeTab === 'team' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between bg-surface-200 p-4 rounded-xl border border-border">
-            <div>
-              <h2 className="text-sm font-semibold text-white">Project Members & Access Control</h2>
-              <p className="text-xs text-muted mt-0.5">
-                Manage roles and environment decrypt permissions for teammates.
-              </p>
-            </div>
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm">
-              <Plus className="h-3.5 w-3.5 stroke-[2.5]" />
-              Invite Member
-            </button>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-semibold text-white">Organization Members & RBAC Roles</h2>
+            <span className="text-xs text-muted font-mono">{members.length} members</span>
           </div>
 
-          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border/60 text-xs">
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-white">Nithin (You)</div>
-                <div className="text-muted font-mono">nithin@keyzen.dev</div>
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-accent/10 text-accent border border-accent/20">
-                Owner
-              </span>
-            </div>
-            <div className="p-4 flex items-center justify-between">
-              <div>
-                <div className="font-semibold text-white">Rahul Sharma</div>
-                <div className="text-muted font-mono">rahul@keyzen.dev</div>
-              </div>
-              <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-surface-100 text-muted border border-border">
-                Developer (Dev + Staging)
-              </span>
-            </div>
+          <div className="rounded-xl border border-border bg-surface-200 overflow-hidden divide-y divide-border">
+            {members.length === 0 ? (
+              <div className="p-8 text-center text-xs text-muted">No members found.</div>
+            ) : (
+              members.map((m) => (
+                <div key={m.id} className="p-4 flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <div className="text-xs font-semibold text-white">{m.name || m.email}</div>
+                    <div className="text-[11px] text-muted font-mono">{m.email}</div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-mono uppercase bg-surface-100 text-accent border border-border">
+                    {m.role}
+                  </span>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}
 
-      {/* MODAL: ADD SECRET */}
+      {/* ─── MODAL: ADD SECRET ──────────────────────────────────────────────────────── */}
       {showAddSecretModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg bg-surface-200 border border-border rounded-xl p-6 shadow-2xl space-y-4">
@@ -521,6 +759,12 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
               </button>
             </div>
 
+            {modalError && (
+              <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
+                ⚠ {modalError}
+              </div>
+            )}
+
             <form onSubmit={handleAddSecret} className="space-y-4">
               <div>
                 <label className="block text-xs font-mono text-muted mb-1">Key Name</label>
@@ -528,8 +772,8 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
                   type="text"
                   placeholder="e.g. STRIPE_WEBHOOK_SECRET"
                   value={newSecretName}
-                  onChange={(e) => setNewSecretName(e.target.value)}
-                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs font-mono text-white placeholder-muted-dark focus:outline-none focus:border-accent"
+                  onChange={(e) => setNewSecretName(e.target.value.toUpperCase())}
+                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs font-mono text-white placeholder-muted focus:outline-none focus:border-accent"
                   required
                 />
               </div>
@@ -537,15 +781,15 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
               <div>
                 <label className="block text-xs font-mono text-muted mb-1">Secret Value (Plaintext)</label>
                 <textarea
-                  placeholder="Paste your API key, connection string, or credential here"
+                  placeholder="Paste your credential, API key, or private connection string here"
                   value={newSecretValue}
                   onChange={(e) => setNewSecretValue(e.target.value)}
                   rows={3}
-                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs font-mono text-white placeholder-muted-dark focus:outline-none focus:border-accent"
+                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs font-mono text-white placeholder-muted focus:outline-none focus:border-accent"
                   required
                 />
                 <p className="text-[11px] text-muted mt-1">
-                  Will be encrypted with AES-256-GCM before saving to Supabase.
+                  Will be encrypted with AES-256-GCM before writing to PostgreSQL.
                 </p>
               </div>
 
@@ -556,7 +800,7 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
                   placeholder="e.g. Production webhook signing secret"
                   value={newSecretComment}
                   onChange={(e) => setNewSecretComment(e.target.value)}
-                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs text-white placeholder-muted-dark focus:outline-none focus:border-accent"
+                  className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs text-white placeholder-muted focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -570,8 +814,10 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
                 </button>
                 <button
                   type="submit"
-                  className="px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
+                  disabled={creatingSecret}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm disabled:opacity-50"
                 >
+                  {creatingSecret && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                   Encrypt & Save Secret
                 </button>
               </div>
@@ -580,7 +826,7 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
         </div>
       )}
 
-      {/* MODAL: GENERATE TOKEN */}
+      {/* ─── MODAL: GENERATE SERVICE TOKEN ─────────────────────────────────────────── */}
       {showAddTokenModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-lg bg-surface-200 border border-border rounded-xl p-6 shadow-2xl space-y-4">
@@ -627,6 +873,12 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
               </div>
             ) : (
               <form onSubmit={handleCreateToken} className="space-y-4">
+                {modalError && (
+                  <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-xs text-red-400">
+                    ⚠ {modalError}
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-xs font-mono text-muted mb-1">Token Name</label>
                   <input
@@ -634,7 +886,7 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
                     placeholder="e.g. GitHub Actions Production Deployer"
                     value={newTokenName}
                     onChange={(e) => setNewTokenName(e.target.value)}
-                    className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs text-white placeholder-muted-dark focus:outline-none focus:border-accent"
+                    className="w-full px-3 py-2 bg-black border border-border rounded-lg text-xs text-white placeholder-muted focus:outline-none focus:border-accent"
                     required
                   />
                 </div>
@@ -649,8 +901,10 @@ export default function ProjectSecretsPage({ params }: { params: { projectSlug: 
                   </button>
                   <button
                     type="submit"
-                    className="px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm"
+                    disabled={creatingToken}
+                    className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-accent text-black font-semibold text-xs hover:bg-accent-hover transition-colors glow-green-sm disabled:opacity-50"
                   >
+                    {creatingToken && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                     Generate Token
                   </button>
                 </div>

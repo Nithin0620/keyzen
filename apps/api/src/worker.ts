@@ -6,20 +6,29 @@ import { hashToken } from '@keyzen/crypto';
 import { typeDefs } from './graphql/typeDefs';
 import { resolvers } from './graphql/resolvers';
 import { cryptoService } from './services/crypto-service';
+import { verifyWorkflowJwt } from './services/auth';
 
 export interface Env {
   DATABASE_URL: string;
   KEYZEN_MASTER_KEY: string;
   NODE_ENV?: string;
+  CORS_ORIGINS?: string;
+  WORKFLOW_AUTH_SECRET?: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Enable global CORS
+// Enable configurable CORS
 app.use(
   '*',
   cors({
-    origin: '*',
+    origin: (origin, c) => {
+      const allowedOrigins = (c.env.CORS_ORIGINS || 'http://localhost:3000,https://keyzen.ssh.net.in').split(',');
+      if (!origin || allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
+        return origin || '*';
+      }
+      return allowedOrigins[0];
+    },
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization', 'x-user-id', 'x-user-email'],
   })
@@ -117,13 +126,32 @@ const yoga = createYoga<{
   context: async ({ req, env }) => {
     const db = createDatabaseClient(env.DATABASE_URL);
     const authHeader = req.headers.get('authorization');
+    let authContext: { type: string; userId?: string; userEmail?: string } = { type: 'ANONYMOUS' };
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7).trim();
+      const payload = verifyWorkflowJwt(token, env.WORKFLOW_AUTH_SECRET);
+      if (payload) {
+        authContext = {
+          type: 'USER',
+          userId: payload.id,
+          userEmail: payload.email,
+        };
+      }
+    } else if (env.NODE_ENV !== 'production') {
+      const devUserId = req.headers.get('x-user-id');
+      if (devUserId) {
+        authContext = {
+          type: 'USER',
+          userId: devUserId,
+          userEmail: req.headers.get('x-user-email') || 'admin@keyzen.dev',
+        };
+      }
+    }
+
     return {
       db,
-      auth: {
-        type: 'USER',
-        userId: req.headers.get('x-user-id') || 'cf-worker-user',
-        userEmail: req.headers.get('x-user-email') || 'admin@keyzen.dev',
-      },
+      auth: authContext,
       req: {
         ip: req.headers.get('cf-connecting-ip') || '127.0.0.1',
         headers: Object.fromEntries(req.headers.entries()),

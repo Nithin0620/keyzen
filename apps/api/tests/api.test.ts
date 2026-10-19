@@ -64,4 +64,78 @@ describe('Keyzen API Server (REST & GraphQL)', () => {
     expect(body.data).toBeDefined();
     expect(body.data.__schema.types.length).toBeGreaterThan(0);
   });
+
+  it('POST /graphql should reject unauthenticated query with UNAUTHENTICATED', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      headers: {
+        'content-type': 'application/json',
+      },
+      payload: {
+        query: `
+          query {
+            organizations {
+              id
+              name
+            }
+          }
+        `,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.errors).toBeDefined();
+    expect(body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('POST /graphql should reject unauthenticated revealSecret query with UNAUTHENTICATED', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      headers: {
+        'content-type': 'application/json',
+      },
+      payload: {
+        query: `
+          query {
+            revealSecret(projectId: "00000000-0000-0000-0000-000000000000", environmentSlug: "dev", secretName: "API_KEY") {
+              value
+            }
+          }
+        `,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.errors).toBeDefined();
+    expect(body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+  });
+
+  it('POST /graphql should reject unauthenticated mutation with UNAUTHENTICATED', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/graphql',
+      headers: {
+        'content-type': 'application/json',
+      },
+      payload: {
+        query: `
+          mutation {
+            createOrganization(name: "Acme", slug: "acme") {
+              id
+            }
+          }
+        `,
+      },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = JSON.parse(res.payload);
+    expect(body.errors).toBeDefined();
+    expect(body.errors[0].extensions.code).toBe('UNAUTHENTICATED');
+  });
 });
+

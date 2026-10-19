@@ -34,13 +34,8 @@ interface WorkflowJwtPayload {
   exp?: number;
 }
 
-/**
- * Attempt to verify a Bearer token as a Workflow-issued JWT.
- * Returns the payload if valid, null if the token is invalid/expired or
- * the secret is not configured.
- */
-function verifyWorkflowJwt(token: string): WorkflowJwtPayload | null {
-  const secret = config.WORKFLOW_AUTH_SECRET;
+export function verifyWorkflowJwt(token: string, secretOverride?: string): WorkflowJwtPayload | null {
+  const secret = secretOverride || config.WORKFLOW_AUTH_SECRET;
   if (!secret) return null;
 
   try {
@@ -57,6 +52,15 @@ export async function authenticateRequest(
 ): Promise<AuthContext> {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
+    // ── Dev fallback (only when WORKFLOW_AUTH_SECRET is not set) ───────────
+    if (config.NODE_ENV !== 'production' && !config.WORKFLOW_AUTH_SECRET) {
+      const userId = req.headers['x-user-id'] as string;
+      if (userId) {
+        const userEmail =
+          (req.headers['x-user-email'] as string) || 'admin@keyzen.dev';
+        return { type: 'USER', userId, userEmail };
+      }
+    }
     return { type: 'ANONYMOUS' };
   }
 

@@ -3,11 +3,11 @@
 import React, { Suspense, useState } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Eye, EyeOff, KeyRound, Loader2, Lock, Mail } from 'lucide-react';
+import { Eye, EyeOff, KeyRound, Loader2, Lock, Mail, Sparkles } from 'lucide-react';
 import { useAuth } from '@/context/auth-context';
 
 function LoginForm() {
-  const { login } = useAuth();
+  const { login, loginDev } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/';
@@ -29,6 +29,20 @@ function LoginForm() {
       router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Login failed. Check your credentials.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDevLogin = async () => {
+    setError(null);
+    setLoading(true);
+    try {
+      await loginDev();
+      router.push(from);
+      router.refresh();
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'Dev login failed.');
     } finally {
       setLoading(false);
     }
@@ -96,6 +110,25 @@ function LoginForm() {
           <KeyRound className="h-4 w-4" />
         )}
         {loading ? 'Signing in…' : 'Sign in'}
+      </button>
+
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-border" />
+        </div>
+        <div className="relative flex justify-center text-[10px] uppercase">
+          <span className="bg-surface-200 px-2 font-mono text-muted">Or Local Development</span>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleDevLogin}
+        disabled={loading}
+        className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent/40 bg-accent/10 py-2.5 text-xs font-semibold text-accent hover:bg-accent/20 transition-all glow-green-sm"
+      >
+        <Sparkles className="h-4 w-4" />
+        Instant Dev Sign-in (Seed Account)
       </button>
     </form>
   );

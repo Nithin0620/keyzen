@@ -1,5 +1,5 @@
 import { FastifyInstance } from 'fastify';
-import { createDatabaseClient, secrets, secretValues, auditLogs, eq, and } from '@keyzen/db';
+import { createDatabaseClient, projects, secrets, secretValues, auditLogs, eq, and } from '@keyzen/db';
 import { authenticateRequest } from '../services/auth';
 import { cryptoService } from '../services/crypto-service';
 
@@ -145,7 +145,6 @@ async function getOrgIdByProjectId(
   db: ReturnType<typeof createDatabaseClient>,
   projectId: string
 ): Promise<string | null> {
-  const { projects } = await import('@keyzen/db');
   const [proj] = await db
     .select({ orgId: projects.orgId })
     .from(projects)

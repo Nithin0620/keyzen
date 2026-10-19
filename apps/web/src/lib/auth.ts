@@ -105,12 +105,43 @@ async function workflowPost<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+export async function loginAsDev(): Promise<AuthResponse> {
+  const res = await fetch('/api/auth/dev-login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+  });
+  if (!res.ok) {
+    throw new Error('Failed to login as developer');
+  }
+  const data = (await res.json()) as AuthResponse;
+  saveAuth(data.token, data.user);
+  return data;
+}
+
 export async function loginWithWorkflow(payload: LoginPayload): Promise<AuthResponse> {
-  return workflowPost<AuthResponse>('/api/v1/auth/login', payload);
+  const res = await fetch('/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || res.statusText);
+  }
+  return res.json() as Promise<AuthResponse>;
 }
 
 export async function registerWithWorkflow(payload: RegisterPayload): Promise<AuthResponse> {
-  return workflowPost<AuthResponse>('/api/v1/auth/register', payload);
+  const res = await fetch('/api/auth/register', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || res.statusText);
+  }
+  return res.json() as Promise<AuthResponse>;
 }
 
 export async function logoutFromWorkflow(token: string): Promise<void> {
