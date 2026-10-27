@@ -1,153 +1,105 @@
 # 🔐 Keyzen
 
 > **Developer-First Secrets Management Platform**  
-> Zero-Disk secret injection, AES-256-GCM envelope encryption, Apollo GraphQL Management API, high-throughput Fastify REST Runtime, Supabase PostgreSQL, and official CLI + SDK.
+> Zero-Disk secret injection, AES-256-GCM envelope encryption, Next.js 14 Management Dashboard & Runtime API, Supabase PostgreSQL, and official zero-disk CLI.
 
 ---
 
 ## 🏗 System Architecture
 
-```
-                  ┌────────────────────────────────────────┐
-                  │          Keyzen Web Dashboard          │
-                  │ (Next.js 14 + Tailwind + Apollo Client)│
-                  └───────────────────┬────────────────────┘
-                                      │
-                               GraphQL API (/graphql)
-                                      │
-┌───────────────────────────────┐     │
-│   Developer CLI / Node SDK    │     │
-│  `keyzen run -- npm start`    │     │
-└───────────────┬───────────────┘     │
-                │                     │
-      REST API (/api/v1/resolve)      │
-                │                     │
-         ┌──────▼─────────────────────▼──────┐
-         │         Keyzen Backend            │
-         │   (Fastify + Apollo Server v4)    │
-         └─────────────────┬─────────────────┘
-                           │
-                 Envelope Cryptography
-                     (AES-256-GCM)
-                           │
-         ┌─────────────────▼─────────────────┐
-         │        Supabase PostgreSQL        │
-         │  (Ciphertext + IV + AuthTag Only) │
-         └───────────────────────────────────┘
+```text
+┌──────────────────────────────────────────────┐
+│           Keyzen Full-Stack App              │
+│       (Next.js 14 + Tailwind CSS)            │
+│                                              │
+│  ├── /dashboard       (Management UI)        │
+│  └── /api/v1/resolve  (CLI Injection API)    │
+└───────────────────────┬──────────────────────┘
+                        │
+             Envelope Cryptography
+                 (AES-256-GCM)
+                        │
+             ┌──────────▼──────────┐
+             │ Supabase PostgreSQL │
+             │  (Ciphertext + IV)  │
+             └─────────────────────┘
+                        ▲
+                        │ Zero-Disk Runtime Resolution
+                        │
+             ┌──────────┴──────────┐
+             │     Keyzen CLI      │
+             │ `keyzen run -- ...` │
+             └─────────────────────┘
 ```
 
 ---
 
-## 📦 Monorepo Structure
+## 📦 Simple Folder Structure
 
-```
+```text
 keyzen/
-├── apps/
-│   ├── api/             # Fastify + Apollo Server v4 (GraphQL + REST Runtime)
-│   └── web/             # Next.js 14 Management Dashboard (Black & Light Green aesthetic)
-├── packages/
-│   ├── cli/             # `keyzen` CLI (`login`, `run`, `get`, `export`)
-│   ├── crypto/          # AES-256-GCM Envelope Encryption & HKDF Key Engine
-│   ├── db/              # Supabase PostgreSQL schema with Drizzle ORM
-│   └── sdk-node/        # Official `@keyzen/node` client library with RAM cache
-└── examples/
-    └── sample-node-app/ # Example application demonstrating zero-disk injection
+├── app/
+│   ├── dashboard/page.tsx         # Projects overview dashboard
+│   ├── dashboard/[projectId]/     # Secrets & Service Tokens management
+│   ├── api/
+│   │   ├── projects/route.ts      # Projects CRUD
+│   │   ├── secrets/route.ts       # Secrets CRUD
+│   │   ├── tokens/route.ts        # Service token issuance
+│   │   └── v1/resolve/route.ts    # Fast CLI zero-disk secret resolution
+│   ├── layout.tsx
+│   └── globals.css
+├── lib/
+│   ├── db.ts                      # PostgreSQL connection (Drizzle ORM)
+│   ├── schema.ts                  # Relational schema matching Supabase tables
+│   └── crypto.ts                  # AES-256-GCM envelope encryption & HKDF
+├── cli/
+│   └── index.mjs                  # Zero-dependency zero-disk CLI tool
+├── .env                           # DATABASE_URL + KEYZEN_MASTER_KEY
+├── package.json                   # Single unified package.json
+└── tsconfig.json
 ```
 
 ---
 
 ## ⚡ Quick Start
 
-### 1. Install dependencies & build
+### 1. Install Dependencies
 ```bash
 pnpm install
-pnpm build
 ```
 
-### 2. Run Tests
-```bash
-pnpm test
+### 2. Configure Environment
+Create `.env`:
+```env
+DATABASE_URL=postgresql://postgres.xxx:password@aws-0-ap-northeast-2.pooler.supabase.com:5432/postgres?sslmode=require
+KEYZEN_MASTER_KEY=keyzen_dev_master_key_must_be_32_bytes_or_more_secure!
 ```
 
-### 3. Start Development Servers
+### 3. Run Development Server
 ```bash
-# Starts both Fastify API (:4000) and Web Dashboard (:3000)
 pnpm dev
 ```
+Open [http://localhost:3000](http://localhost:3000) to access the Keyzen dashboard.
 
 ---
 
 ## 💻 Developer CLI Usage
 
-### Authenticate
+### Zero-Disk Secret Injection (`keyzen run`)
+Run any application without storing sensitive `.env` files on disk:
 ```bash
-keyzen login kzn_prod_your_service_token
+./cli/index.mjs run --token <kzn_token> -- npm start
+./cli/index.mjs run --token <kzn_token> -- node index.js
+./cli/index.mjs run --token <kzn_token> -- python main.py
 ```
 
-### Zero-Disk Injection (`keyzen run`)
-Run any application without keeping `.env` files on disk:
+### Save Token Locally
 ```bash
-keyzen run -- npm start
-keyzen run -- node server.js
-keyzen run -- python main.py
+./cli/index.mjs login <kzn_token>
+./cli/index.mjs run -- npm start
 ```
 
-### Get a single secret
+### Fetch a Single Secret
 ```bash
-keyzen get STRIPE_SECRET_KEY
+./cli/index.mjs get STRIPE_SECRET_KEY
 ```
-
-### Export (for CI/CD fallback)
-```bash
-keyzen export --format env > .env.local
-```
-
----
-
-## 🛠 Node.js SDK Usage (`@keyzen/node`)
-
-```typescript
-import { Keyzen } from '@keyzen/node';
-
-const keyzen = new Keyzen({
-  token: process.env.KEYZEN_TOKEN, // Scoped service token
-});
-
-// 1. Get a specific secret
-const stripeKey = await keyzen.get('STRIPE_SECRET_KEY');
-
-// 2. Or inject all secrets directly into process.env in-memory
-await keyzen.injectEnv();
-console.log(process.env.DATABASE_URL);
-```
-
----
-
-## 🔒 Security Model
-
-- **No Plaintext in DB:** Supabase only stores `ciphertext`, `iv`, and `auth_tag`.
-- **Envelope Encryption:** Project keys are derived via HKDF-SHA256 from a root Master Key and unique project identifiers.
-- **Strict Separation:** GraphQL metadata queries only return key names and version history; decrypted values require privileged calls with immutable audit logs.
-
----
-
-## 📜 Project Status
-
-Keyzen is under active development. The crypto engine, database schema, backend API, Node SDK, and CLI are implemented and passing tests. Expect breaking changes.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for workflow and conventions, and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for community guidelines.
-
-**Do not open a public issue for security vulnerabilities** — follow [SECURITY.md](SECURITY.md) instead.
-
----
-
-## 📄 License
-
-Released under the [MIT License](LICENSE).
-
-Copyright © 2026 KS Nithin
-
