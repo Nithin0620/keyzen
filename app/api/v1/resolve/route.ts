@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, serviceTokens, environments, secrets, secretValues, auditLogs } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { sql } from '@/lib/db';
 import { hashToken, decryptForProject } from '@/lib/crypto';
 
 export async function POST(req: NextRequest) {
@@ -16,95 +15,79 @@ export async function POST(req: NextRequest) {
     const token = authHeader.replace('Bearer ', '').trim();
     const tokenHash = hashToken(token);
 
-    // Find service token
-    const [foundToken] = await db
-      .select({
-        id: serviceTokens.id,
-        name: serviceTokens.name,
-        projectId: serviceTokens.projectId,
-        environmentId: serviceTokens.environmentId,
-        environmentSlug: environments.slug,
-        expiresAt: serviceTokens.expiresAt,
-      })
-      .from(serviceTokens)
-      .innerJoin(environments, eq(serviceTokens.environmentId, environments.id))
-      .where(eq(serviceTokens.tokenHash, tokenHash))
-      .limit(1);
+    // Single consolidated query: Auth check + Environment check + Secrets fetch in 1 roundtrip
+    const rows = await sql`
+      SELECT 
+        st.id as "tokenId",
+        st.name as "tokenName",
+        st.project_id as "projectId",
+        st.expires_at as "expiresAt",
+        e.slug as "envSlug",
+        s.name as "secretName",
+        sv.ciphertext,
+        sv.iv,
+        sv.auth_tag as "authTag"
+      FROM service_tokens st
+      INNER JOIN environments e ON e.id = st.environment_id
+      LEFT JOIN secrets s ON s.project_id = st.project_id
+      LEFT JOIN secret_values sv ON sv.secret_id = s.id AND sv.environment_id = st.environment_id
+      WHERE st.token_hash = ${tokenHash};
+    `;
 
-    if (!foundToken) {
+    if (rows.length === 0) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Invalid service token' },
         { status: 401 }
       );
     }
 
-    if (foundToken.expiresAt && new Date(foundToken.expiresAt) < new Date()) {
+    const first = rows[0];
+
+    if (first.expiresAt && new Date(first.expiresAt) < new Date()) {
       return NextResponse.json(
         { error: 'Unauthorized', message: 'Service token has expired' },
         { status: 401 }
       );
     }
 
-    // Update lastUsedAt asynchronously
-    db.update(serviceTokens)
-      .set({ lastUsedAt: new Date() })
-      .where(eq(serviceTokens.id, foundToken.id))
-      .execute()
-      .catch(() => {});
+    // Fire-and-forget: update lastUsedAt without blocking the response
+    sql`UPDATE service_tokens SET last_used_at = NOW() WHERE id = ${first.tokenId}`.catch(() => {});
 
-    // Query secrets for this environment
-    const rows = await db
-      .select({
-        name: secrets.name,
-        ciphertext: secretValues.ciphertext,
-        iv: secretValues.iv,
-        authTag: secretValues.authTag,
-      })
-      .from(secrets)
-      .innerJoin(
-        secretValues,
-        and(
-          eq(secretValues.secretId, secrets.id),
-          eq(secretValues.environmentId, foundToken.environmentId)
-        )
-      )
-      .where(eq(secrets.projectId, foundToken.projectId));
-
+    // Decrypt all resolved secrets in-memory
     const resolved: Record<string, string> = {};
     for (const row of rows) {
-      try {
-        const decrypted = decryptForProject(foundToken.projectId, {
-          ciphertext: row.ciphertext,
-          iv: row.iv,
-          authTag: row.authTag,
-        });
-        resolved[row.name] = decrypted;
-      } catch (err) {
-        console.error(`Failed to decrypt secret ${row.name}:`, err);
+      if (row.secretName && row.ciphertext && row.iv && row.authTag) {
+        try {
+          const decrypted = decryptForProject(first.projectId, {
+            ciphertext: row.ciphertext,
+            iv: row.iv,
+            authTag: row.authTag,
+          });
+          resolved[row.secretName] = decrypted;
+        } catch (err) {
+          console.error(`Failed to decrypt secret ${row.secretName}:`, err);
+        }
       }
     }
 
-    // Insert audit log
-    db.insert(auditLogs)
-      .values({
-        orgId: foundToken.projectId, // fallback if orgId not joined
-        projectId: foundToken.projectId,
-        actorType: 'SERVICE_TOKEN',
-        actorId: foundToken.id,
-        actorName: foundToken.name,
-        action: 'SECRET_RESOLVE_BATCH',
-        metadata: {
-          environment: foundToken.environmentSlug,
-          count: Object.keys(resolved).length,
-        },
-        ipAddress: req.headers.get('x-forwarded-for') || '127.0.0.1',
-        userAgent: req.headers.get('user-agent') || 'Keyzen-Client',
-      })
-      .execute()
-      .catch(() => {});
+    // Fire-and-forget: audit log insertion
+    sql`
+      INSERT INTO audit_logs (org_id, project_id, actor_type, actor_id, actor_name, action, metadata, ip_address, user_agent)
+      VALUES (
+        ${first.projectId}, 
+        ${first.projectId}, 
+        'SERVICE_TOKEN', 
+        ${first.tokenId}, 
+        ${first.tokenName}, 
+        'SECRET_RESOLVE_BATCH', 
+        ${JSON.stringify({ environment: first.envSlug, count: Object.keys(resolved).length })},
+        ${req.headers.get('x-forwarded-for') || '127.0.0.1'},
+        ${req.headers.get('user-agent') || 'Keyzen-Client'}
+      )
+    `.catch(() => {});
 
     return NextResponse.json({
-      environment: foundToken.environmentSlug,
+      environment: first.envSlug,
       count: Object.keys(resolved).length,
       secrets: resolved,
     });

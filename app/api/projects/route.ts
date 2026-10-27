@@ -1,42 +1,38 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, organizations, projects, environments, secrets, secretValues } from '@/lib/db';
-import { eq, sql } from 'drizzle-orm';
+import { sql, db, organizations, projects, environments } from '@/lib/db';
 
 export async function GET() {
   try {
-    // Fetch all projects
-    const allProjects = await db.select().from(projects);
-
-    // For each project, fetch its environments and secret count
-    const enrichedProjects = await Promise.all(
-      allProjects.map(async (project) => {
-        const envs = await db
-          .select()
-          .from(environments)
-          .where(eq(environments.projectId, project.id));
-
-        const enrichedEnvs = await Promise.all(
-          envs.map(async (env) => {
-            const [valCount] = await db
-              .select({ count: sql<number>`count(*)::int` })
-              .from(secretValues)
-              .where(eq(secretValues.environmentId, env.id));
-
-            return {
-              id: env.id,
-              name: env.name,
-              slug: env.slug,
-              secretCount: valCount?.count || 0,
-            };
-          })
-        );
-
-        return {
-          ...project,
-          environments: enrichedEnvs,
-        };
-      })
-    );
+    // Single consolidated query with JSON aggregation: eliminates N+1 queries completely
+    const enrichedProjects = await sql`
+      SELECT 
+        p.id,
+        p.org_id as "orgId",
+        p.name,
+        p.slug,
+        p.description,
+        p.created_at as "createdAt",
+        COALESCE(
+          json_agg(
+            json_build_object(
+              'id', e.id,
+              'name', e.name,
+              'slug', e.slug,
+              'secretCount', COALESCE(sc.cnt, 0)
+            ) ORDER BY e.slug
+          ) FILTER (WHERE e.id IS NOT NULL),
+          '[]'::json
+        ) AS environments
+      FROM projects p
+      LEFT JOIN environments e ON e.project_id = p.id
+      LEFT JOIN (
+        SELECT environment_id, count(*)::int AS cnt
+        FROM secret_values
+        GROUP BY environment_id
+      ) sc ON sc.environment_id = e.id
+      GROUP BY p.id
+      ORDER BY p.created_at DESC;
+    `;
 
     return NextResponse.json({ projects: enrichedProjects });
   } catch (err: any) {
@@ -79,22 +75,12 @@ export async function POST(req: NextRequest) {
       })
       .returning();
 
-    // Create default environments: dev, staging, prod
-    const defaultEnvs = [
-      { name: 'Development', slug: 'dev' },
-      { name: 'Staging', slug: 'staging' },
-      { name: 'Production', slug: 'prod' },
-    ];
-
-    await Promise.all(
-      defaultEnvs.map((e) =>
-        db.insert(environments).values({
-          projectId: newProject.id,
-          name: e.name,
-          slug: e.slug,
-        })
-      )
-    );
+    // Create default environments: dev, staging, prod in a single multi-row INSERT
+    await db.insert(environments).values([
+      { projectId: newProject.id, name: 'Development', slug: 'dev' },
+      { projectId: newProject.id, name: 'Staging', slug: 'staging' },
+      { projectId: newProject.id, name: 'Production', slug: 'prod' },
+    ]);
 
     return NextResponse.json({ project: newProject }, { status: 201 });
   } catch (err: any) {

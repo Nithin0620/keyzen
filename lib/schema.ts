@@ -1,4 +1,4 @@
-import { integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgTable, text, timestamp, uniqueIndex, uuid } from 'drizzle-orm/pg-core';
 import { relations } from 'drizzle-orm';
 
 // Organizations
@@ -10,6 +10,7 @@ export const organizations = pgTable('organizations', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Organization Members (RBAC)
 export const orgMembers = pgTable('org_members', {
   id: uuid('id').defaultRandom().primaryKey(),
   orgId: uuid('org_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
@@ -35,8 +36,8 @@ export const projects = pgTable('projects', {
 export const environments = pgTable('environments', {
   id: uuid('id').defaultRandom().primaryKey(),
   projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
-  name: text('name').notNull(), // "Development", "Production"
-  slug: text('slug').notNull(), // "dev", "prod"
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -75,6 +76,19 @@ export const secretValues = pgTable(
   })
 );
 
+// Secret Version History (for 1-click rollback)
+export const secretHistory = pgTable('secret_history', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  secretId: uuid('secret_id').references(() => secrets.id, { onDelete: 'cascade' }).notNull(),
+  environmentId: uuid('environment_id').references(() => environments.id, { onDelete: 'cascade' }).notNull(),
+  version: integer('version').notNull(),
+  ciphertext: text('ciphertext').notNull(),
+  iv: text('iv').notNull(),
+  authTag: text('auth_tag').notNull(),
+  changedBy: text('changed_by').default('user').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
 // Service Tokens for CLI & SDK
 export const serviceTokens = pgTable('service_tokens', {
   id: uuid('id').defaultRandom().primaryKey(),
@@ -104,57 +118,25 @@ export const auditLogs = pgTable('audit_logs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
-// Relations
-export const organizationsRelations = relations(organizations, ({ many }) => ({
-  members: many(orgMembers),
-  projects: many(projects),
-}));
+// Webhooks
+export const webhooks = pgTable('webhooks', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  projectId: uuid('project_id').references(() => projects.id, { onDelete: 'cascade' }).notNull(),
+  url: text('url').notNull(),
+  platform: text('platform', { enum: ['SLACK', 'DISCORD', 'GENERIC'] }).default('GENERIC').notNull(),
+  events: text('events').array().notNull(),
+  isActive: boolean('is_active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});
 
-export const projectsRelations = relations(projects, ({ one, many }) => ({
-  organization: one(organizations, {
-    fields: [projects.orgId],
-    references: [organizations.id],
-  }),
-  environments: many(environments),
-  secrets: many(secrets),
-  serviceTokens: many(serviceTokens),
-}));
-
-export const environmentsRelations = relations(environments, ({ one, many }) => ({
-  project: one(projects, {
-    fields: [environments.projectId],
-    references: [projects.id],
-  }),
-  secretValues: many(secretValues),
-  serviceTokens: many(serviceTokens),
-}));
-
-export const secretsRelations = relations(secrets, ({ one, many }) => ({
-  project: one(projects, {
-    fields: [secrets.projectId],
-    references: [projects.id],
-  }),
-  values: many(secretValues),
-}));
-
-export const secretValuesRelations = relations(secretValues, ({ one }) => ({
-  secret: one(secrets, {
-    fields: [secretValues.secretId],
-    references: [secrets.id],
-  }),
-  environment: one(environments, {
-    fields: [secretValues.environmentId],
-    references: [environments.id],
-  }),
-}));
-
-export const serviceTokensRelations = relations(serviceTokens, ({ one }) => ({
-  project: one(projects, {
-    fields: [serviceTokens.projectId],
-    references: [projects.id],
-  }),
-  environment: one(environments, {
-    fields: [serviceTokens.environmentId],
-    references: [environments.id],
-  }),
-}));
+// Subscriptions (Stripe SaaS Billing)
+export const subscriptions = pgTable('subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  orgId: uuid('org_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  stripeCustomerId: text('stripe_customer_id'),
+  stripeSubscriptionId: text('stripe_subscription_id'),
+  plan: text('plan', { enum: ['FREE', 'PRO', 'ENTERPRISE'] }).default('FREE').notNull(),
+  status: text('status').default('active').notNull(),
+  currentPeriodEnd: timestamp('current_period_end', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

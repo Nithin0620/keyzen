@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, serviceTokens, environments } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { sql } from '@/lib/db';
 import { generateServiceToken } from '@/lib/crypto';
 
 export async function GET(req: NextRequest) {
@@ -12,21 +11,22 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
 
-    const tokens = await db
-      .select({
-        id: serviceTokens.id,
-        name: serviceTokens.name,
-        tokenPrefix: serviceTokens.tokenPrefix,
-        environmentId: serviceTokens.environmentId,
-        environmentSlug: environments.slug,
-        environmentName: environments.name,
-        createdAt: serviceTokens.createdAt,
-        lastUsedAt: serviceTokens.lastUsedAt,
-        expiresAt: serviceTokens.expiresAt,
-      })
-      .from(serviceTokens)
-      .innerJoin(environments, eq(serviceTokens.environmentId, environments.id))
-      .where(eq(serviceTokens.projectId, projectId));
+    const tokens = await sql`
+      SELECT 
+        st.id,
+        st.name,
+        st.token_prefix as "tokenPrefix",
+        st.environment_id as "environmentId",
+        e.slug as "environmentSlug",
+        e.name as "environmentName",
+        st.created_at as "createdAt",
+        st.last_used_at as "lastUsedAt",
+        st.expires_at as "expiresAt"
+      FROM service_tokens st
+      INNER JOIN environments e ON e.id = st.environment_id
+      WHERE st.project_id = ${projectId}
+      ORDER BY st.created_at DESC;
+    `;
 
     return NextResponse.json({ tokens });
   } catch (err: any) {
@@ -44,16 +44,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
 
-    const [env] = await db
-      .select()
-      .from(environments)
-      .where(
-        and(
-          eq(environments.projectId, projectId),
-          eq(environments.slug, environmentSlug)
-        )
-      )
-      .limit(1);
+    const [env] = await sql`
+      SELECT id, slug FROM environments 
+      WHERE project_id = ${projectId} AND slug = ${environmentSlug} 
+      LIMIT 1;
+    `;
 
     if (!env) {
       return NextResponse.json({ error: 'Environment not found' }, { status: 404 });
@@ -62,24 +57,17 @@ export async function POST(req: NextRequest) {
     const { token, hash } = generateServiceToken(environmentSlug);
     const prefix = token.slice(0, 16) + '...';
 
-    const [created] = await db
-      .insert(serviceTokens)
-      .values({
-        projectId,
-        environmentId: env.id,
-        name,
-        tokenHash: hash,
-        tokenPrefix: prefix,
-        createdBy: 'user',
-      })
-      .returning();
+    const [created] = await sql`
+      INSERT INTO service_tokens (project_id, environment_id, name, token_hash, token_prefix, created_by)
+      VALUES (${projectId}, ${env.id}, ${name}, ${hash}, ${prefix}, 'user')
+      RETURNING id, name;
+    `;
 
-    // Plaintext token is only returned on creation!
     return NextResponse.json(
       {
         id: created.id,
         name: created.name,
-        token, // Plaintext returned once
+        token,
         prefix,
         environment: env.slug,
       },
@@ -100,7 +88,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'id is required' }, { status: 400 });
     }
 
-    await db.delete(serviceTokens).where(eq(serviceTokens.id, id));
+    await sql`DELETE FROM service_tokens WHERE id = ${id};`;
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Failed to revoke token:', err);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, secrets, secretValues, environments } from '@/lib/db';
-import { eq, and } from 'drizzle-orm';
+import { sql } from '@/lib/db';
 import { encryptForProject, decryptForProject } from '@/lib/crypto';
+import { dispatchWebhooks } from '@/lib/webhooks';
 
 export async function GET(req: NextRequest) {
   try {
@@ -13,67 +13,73 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'projectId is required' }, { status: 400 });
     }
 
-    // Find the environment
-    const [env] = await db
-      .select()
-      .from(environments)
-      .where(
-        and(
-          eq(environments.projectId, projectId),
-          eq(environments.slug, environmentSlug)
-        )
-      )
-      .limit(1);
+    const rows = await sql`
+      SELECT 
+        e.id as "envId",
+        e.name as "envName",
+        e.slug as "envSlug",
+        s.id,
+        s.name,
+        s.comment,
+        s.updated_at as "updatedAt",
+        sv.ciphertext,
+        sv.iv,
+        sv.auth_tag as "authTag",
+        sv.version
+      FROM environments e
+      LEFT JOIN secrets s ON s.project_id = e.project_id
+      LEFT JOIN secret_values sv ON sv.secret_id = s.id AND sv.environment_id = e.id
+      WHERE e.project_id = ${projectId} AND e.slug = ${environmentSlug}
+      ORDER BY s.name ASC;
+    `;
 
-    if (!env) {
-      return NextResponse.json({ error: 'Environment not found' }, { status: 404 });
+    if (rows.length === 0) {
+      const [env] = await sql`
+        SELECT id, name, slug FROM environments 
+        WHERE project_id = ${projectId} AND slug = ${environmentSlug} 
+        LIMIT 1;
+      `;
+      if (!env) {
+        return NextResponse.json({ error: 'Environment not found' }, { status: 404 });
+      }
+      return NextResponse.json({ secrets: [], environment: env });
     }
 
-    // Query all secrets for this project
-    const allSecrets = await db
-      .select()
-      .from(secrets)
-      .where(eq(secrets.projectId, projectId));
+    const envInfo = {
+      id: rows[0].envId,
+      name: rows[0].envName,
+      slug: rows[0].envSlug,
+    };
 
-    // For each secret, query value in this environment
-    const result = await Promise.all(
-      allSecrets.map(async (s) => {
-        const [val] = await db
-          .select()
-          .from(secretValues)
-          .where(
-            and(
-              eq(secretValues.secretId, s.id),
-              eq(secretValues.environmentId, env.id)
-            )
-          )
-          .limit(1);
+    if (!rows[0].id) {
+      return NextResponse.json({ secrets: [], environment: envInfo });
+    }
 
-        let plaintext = '';
-        if (val) {
-          try {
-            plaintext = decryptForProject(projectId, {
-              ciphertext: val.ciphertext,
-              iv: val.iv,
-              authTag: val.authTag,
-            });
-          } catch (e) {
-            console.error(`Failed to decrypt ${s.name}:`, e);
-          }
+    const decryptedSecrets = rows.map((row: any) => {
+      let plaintext = '';
+      if (row.ciphertext && row.iv && row.authTag) {
+        try {
+          plaintext = decryptForProject(projectId, {
+            ciphertext: row.ciphertext,
+            iv: row.iv,
+            authTag: row.authTag,
+          });
+        } catch (e) {
+          console.error(`Failed to decrypt ${row.name}:`, e);
         }
+      }
 
-        return {
-          id: s.id,
-          name: s.name,
-          comment: s.comment,
-          value: plaintext,
-          version: val?.version || 1,
-          updatedAt: val?.updatedAt || s.updatedAt,
-        };
-      })
-    );
+      return {
+        id: row.id,
+        name: row.name,
+        comment: row.comment,
+        value: plaintext,
+        version: row.version || 1,
+        updatedAt: row.updatedAt,
+      };
+    });
 
-    return NextResponse.json({ secrets: result, environment: env });
+    return NextResponse.json({ secrets: decryptedSecrets, environment: envInfo });
   } catch (err: any) {
     console.error('Failed to get secrets:', err);
     return NextResponse.json({ error: err.message }, { status: 500 });
@@ -92,86 +98,80 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Find environment
-    const [env] = await db
-      .select()
-      .from(environments)
-      .where(
-        and(
-          eq(environments.projectId, projectId),
-          eq(environments.slug, environmentSlug)
-        )
-      )
-      .limit(1);
+    const encrypted = encryptForProject(projectId, value);
+
+    const [env] = await sql`
+      SELECT id FROM environments 
+      WHERE project_id = ${projectId} AND slug = ${environmentSlug} 
+      LIMIT 1;
+    `;
 
     if (!env) {
       return NextResponse.json({ error: 'Environment not found' }, { status: 404 });
     }
 
-    // Find or create secret
-    let [secretRecord] = await db
-      .select()
-      .from(secrets)
-      .where(
-        and(
-          eq(secrets.projectId, projectId),
-          eq(secrets.name, name)
-        )
-      )
-      .limit(1);
+    const [secretRecord] = await sql`
+      INSERT INTO secrets (project_id, name, comment)
+      VALUES (${projectId}, ${name}, ${comment || null})
+      ON CONFLICT (project_id, name)
+      DO UPDATE SET comment = COALESCE(EXCLUDED.comment, secrets.comment), updated_at = NOW()
+      RETURNING id, name;
+    `;
 
-    if (!secretRecord) {
-      [secretRecord] = await db
-        .insert(secrets)
-        .values({
-          projectId,
-          name,
-          comment: comment || null,
-        })
-        .returning();
-    } else if (comment !== undefined) {
-      await db
-        .update(secrets)
-        .set({ comment, updatedAt: new Date() })
-        .where(eq(secrets.id, secretRecord.id));
-    }
-
-    // Encrypt the value
-    const encrypted = encryptForProject(projectId, value);
-
-    // Upsert secret value
-    const [existingVal] = await db
-      .select()
-      .from(secretValues)
-      .where(
-        and(
-          eq(secretValues.secretId, secretRecord.id),
-          eq(secretValues.environmentId, env.id)
-        )
-      )
-      .limit(1);
+    // Check if an existing value is present, to archive before updating
+    const [existingVal] = await sql`
+      SELECT ciphertext, iv, auth_tag, version 
+      FROM secret_values 
+      WHERE secret_id = ${secretRecord.id} AND environment_id = ${env.id}
+      LIMIT 1;
+    `;
 
     if (existingVal) {
-      await db
-        .update(secretValues)
-        .set({
-          ciphertext: encrypted.ciphertext,
-          iv: encrypted.iv,
-          authTag: encrypted.authTag,
-          version: existingVal.version + 1,
-          updatedAt: new Date(),
-        })
-        .where(eq(secretValues.id, existingVal.id));
+      // Archive previous version to secret_history
+      await sql`
+        INSERT INTO secret_history (secret_id, environment_id, version, ciphertext, iv, auth_tag, changed_by)
+        VALUES (${secretRecord.id}, ${env.id}, ${existingVal.version}, ${existingVal.ciphertext}, ${existingVal.iv}, ${existingVal.auth_tag}, 'user');
+      `;
+
+      // Update to new version
+      await sql`
+        UPDATE secret_values 
+        SET 
+          ciphertext = ${encrypted.ciphertext},
+          iv = ${encrypted.iv},
+          auth_tag = ${encrypted.authTag},
+          version = ${existingVal.version + 1},
+          updated_at = NOW()
+        WHERE secret_id = ${secretRecord.id} AND environment_id = ${env.id};
+      `;
     } else {
-      await db.insert(secretValues).values({
-        secretId: secretRecord.id,
-        environmentId: env.id,
-        ciphertext: encrypted.ciphertext,
-        iv: encrypted.iv,
-        authTag: encrypted.authTag,
-        version: 1,
-      });
+      await sql`
+        INSERT INTO secret_values (secret_id, environment_id, ciphertext, iv, auth_tag, version)
+        VALUES (${secretRecord.id}, ${env.id}, ${encrypted.ciphertext}, ${encrypted.iv}, ${encrypted.authTag}, 1);
+      `;
     }
+
+    // Log audit
+    const [proj] = await sql`SELECT org_id as "orgId" FROM projects WHERE id = ${projectId} LIMIT 1;`;
+    sql`
+      INSERT INTO audit_logs (org_id, project_id, actor_type, actor_id, actor_name, action, metadata)
+      VALUES (
+        ${proj?.orgId || projectId},
+        ${projectId},
+        'USER',
+        'dashboard-user',
+        'Dashboard User',
+        ${existingVal ? 'SECRET_UPDATE' : 'SECRET_CREATE'},
+        ${JSON.stringify({ name, environment: environmentSlug })}
+      );
+    `.catch(() => {});
+
+    // Dispatch Webhooks
+    dispatchWebhooks(projectId, 'SECRET_UPDATE', {
+      secretName: name,
+      environment: environmentSlug,
+      action: existingVal ? 'UPDATED' : 'CREATED',
+    }).catch(() => {});
 
     return NextResponse.json({ success: true, secret: secretRecord });
   } catch (err: any) {
@@ -189,7 +189,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'secretId is required' }, { status: 400 });
     }
 
-    await db.delete(secrets).where(eq(secrets.id, secretId));
+    await sql`DELETE FROM secrets WHERE id = ${secretId};`;
     return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error('Failed to delete secret:', err);

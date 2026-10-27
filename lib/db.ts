@@ -13,22 +13,23 @@ declare global {
   var _drizzleDb: ReturnType<typeof drizzle<typeof schema>> | undefined;
 }
 
-const client =
+export const sql =
   global._postgresClient ??
   postgres(connectionString, {
     prepare: false, // Required for Supabase transaction pooler
     max: 10,
-    idle_timeout: 20,
+    idle_timeout: 300, // Keep connection hot for 5 minutes instead of dropping after 20s
     connect_timeout: 10,
+    max_lifetime: 1800,
   });
 
 if (process.env.NODE_ENV !== 'production') {
-  global._postgresClient = client;
+  global._postgresClient = sql;
 }
 
 export const db =
   global._drizzleDb ??
-  drizzle(client, { schema });
+  drizzle(sql, { schema });
 
 if (process.env.NODE_ENV !== 'production') {
   global._drizzleDb = db;
