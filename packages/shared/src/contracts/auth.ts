@@ -30,6 +30,18 @@ export const workspaceSchema = z.object({
   description: z.string().max(500).optional(),
 });
 
+export const profileUpdateSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+});
+
+export const refreshSchema = z.object({
+  refreshToken: z.string().optional(),
+});
+
+export const tokenOnlySchema = z.object({
+  token: z.string().min(20),
+});
+
 export const invitationSchema = z.object({
   email: z.string().trim().toLowerCase().email(),
   role: z.enum(['ADMIN', 'MEMBER', 'VIEWER']),
@@ -41,3 +53,6 @@ export type PasswordResetRequestInput = z.infer<typeof passwordResetRequestSchem
 export type PasswordResetInput = z.infer<typeof passwordResetSchema>;
 export type WorkspaceInput = z.infer<typeof workspaceSchema>;
 export type InvitationInput = z.infer<typeof invitationSchema>;
+export type ProfileUpdateInput = z.infer<typeof profileUpdateSchema>;
+export type RefreshInput = z.infer<typeof refreshSchema>;
+export type TokenOnlyInput = z.infer<typeof tokenOnlySchema>;

@@ -1,4 +1,4 @@
-# KeyZen
+# Aegis
 
 One secure place for all your project secrets.
 
@@ -11,7 +11,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the end-to-end build plan, tech decisions a
 - `apps/api` — NestJS modular monolith (auth, RBAC, secrets, audit, billing)
 - `apps/web` — Next.js dashboard
 - `packages/shared` — Zod contracts and permission definitions
-- `packages/sdk` — published `keyzen` npm package and `npx keyzen` CLI
+- `packages/sdk` — published `aegis` npm package and `npx aegis` CLI
 
 ## Getting started
 
@@ -23,4 +23,4 @@ pnpm install
 pnpm dev
 ```
 
-Status: **Phase 0 — foundation**. Nothing here is production-ready yet.
+Status: **Phase 2 — identity and authentication**. Nothing here is production-ready yet.

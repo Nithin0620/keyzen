@@ -1,8 +1,8 @@
-# KeyZen — MongoDB rebuild plan
+# Aegis — MongoDB rebuild plan
 
 ## 0. Scope
 
-KeyZen is a cloud secrets manager with the hierarchy **User → Workspace → Project → Environment → Secret**, RBAC at workspace and project level, and a published `keyzen` npm SDK/CLI that injects secrets into server-side Node processes at runtime.
+Aegis is a cloud secrets manager with the hierarchy **User → Workspace → Project → Environment → Secret**, RBAC at workspace and project level, and a published `aegis` npm SDK/CLI that injects secrets into server-side Node processes at runtime.
 
 The previous repository is archived and is **not** being reused. This document is the single source of truth for the rebuild. The dashboard is deliberately the **last phase** so it can be designed against a finished, real API with your review at every step.
 
@@ -35,7 +35,7 @@ The previous repository is archived and is **not** being reused. This document i
 | Auth | API-owned: argon2id, JWT access + refresh cookies, Google OAuth2, reset tokens | Single identity authority |
 | RBAC | Permission matrix + Nest `@RequirePermission` guard | Workspace and project roles independent |
 | Crypto | AES-256-GCM envelope, KMS provider interface, key IDs, rotation | `EnvKeyProvider` for dev, AWS/GCP KMS for prod |
-| SDK/CLI | `keyzen` TypeScript package, tsup ESM+CJS, Commander | `npm i keyzen`, `npx keyzen run -- npm start` |
+| SDK/CLI | `aegis` TypeScript package, tsup ESM+CJS, Commander | `npm i aegis`, `npx aegis run -- npm start` |
 | Contracts | Zod in `packages/shared` | One validation source for API, web, SDK |
 | Email | Resend | Verification, reset, invites |
 | Observability | Pino redaction + OpenTelemetry + Sentry | No secret values in any sink |
@@ -149,28 +149,28 @@ Use ObjectId for `_id`; expose string IDs externally. Every tenant-owned collect
 
 ### Phase 8 — Service credentials and runtime API
 **Goal:** applications can resolve secrets safely.
-- Token creation with project+environment scope, expiry, name, hashed storage (`kzn_` prefix), one-time plaintext display.
+- Token creation with project+environment scope, expiry, name, hashed storage (`ags_` prefix), one-time plaintext display.
 - List (prefixes only), rotate, revoke; revocation cached in Redis for immediate effect.
 - `POST /v1/secrets/resolve` with token auth, rate limiting, per-token audit, and only the token's environment returned.
 - Validate endpoint for SDK/CLI; no secret values in validation responses.
 - **Done when:** a token for env A cannot read env B; revoked token fails immediately; token hash never leaves DB; resolve is rate-limited and audited.
 
-### Phase 9 — SDK (`keyzen` npm package)
+### Phase 9 — SDK (`aegis` npm package)
 **Goal:** the core differentiator works in real apps.
 - Public API: `init()`, `get()`, `getAll()`, `inject()`, `sync()`, `run()`, `validate()`, `disconnect()`.
-- Config: `projectId`, `environment`, `apiKey` from `KEYZEN_SERVICE_TOKEN`; endpoint override for self-hosting.
+- Config: `projectId`, `environment`, `apiKey` from `AEGIS_SERVICE_TOKEN`; endpoint override for self-hosting.
 - In-memory cache with TTL, refresh-on-demand, explicit disconnect; no disk persistence of secrets.
 - Server-only guard (`typeof window !== 'undefined'` throws); clear errors with no values.
 - Timeouts, bounded retries with jitter, typed errors, ESM+CJS builds, published tarball test in a sample app.
 - **Done when:** sample Express app starts with injected `process.env` values, no `.env` on disk, browser import fails clearly, and CI installs the packed tarball.
 
 ### Phase 10 — CLI
-**Goal:** `npx keyzen` works without leaking credentials.
+**Goal:** `npx aegis` works without leaking credentials.
 - Commands: `init`, `pull`, `run`, `validate`, `login`, `logout`.
 - Token from environment variable or OS keychain (keychain preferred); never a world-readable plaintext config file; tokens never in shell history or process args.
-- `run -- <cmd>` spawns child with secrets in memory only; strips KeyZen internal vars from child env; blocks overriding `NODE_OPTIONS`/`LD_PRELOAD`/`PATH` from stored secrets.
+- `run -- <cmd>` spawns child with secrets in memory only; strips Aegis internal vars from child env; blocks overriding `NODE_OPTIONS`/`LD_PRELOAD`/`PATH` from stored secrets.
 - Signal-exit propagation, timeouts, structured output for CI.
-- **Done when:** `npx keyzen run -- node app.js` works with no `.env`, token absent from `ps` output, and keychain storage verified on Linux/macOS/Windows fallback.
+- **Done when:** `npx aegis run -- node app.js` works with no `.env`, token absent from `ps` output, and keychain storage verified on Linux/macOS/Windows fallback.
 
 ### Phase 11 — Integrations and background work
 **Goal:** billing, notifications and outbound events are real.

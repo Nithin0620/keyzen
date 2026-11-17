@@ -1,4 +1,4 @@
-export interface KeyZenOptions {
+export interface AegisOptions {
   projectId: string;
   environment: string;
   apiKey?: string;
@@ -7,21 +7,21 @@ export interface KeyZenOptions {
 
 function assertServerOnly(): void {
   if (typeof window !== 'undefined') {
-    throw new Error('KeyZen must only be used in a server-side Node.js process');
+    throw new Error('Aegis must only be used in a server-side Node.js process');
   }
 }
 
-export class KeyZen {
-  constructor(private readonly options: KeyZenOptions) {
+export class Aegis {
+  constructor(private readonly options: AegisOptions) {
     assertServerOnly();
     if (!options.projectId || !options.environment) {
-      throw new Error('KeyZen requires projectId and environment');
+      throw new Error('Aegis requires projectId and environment');
     }
   }
 
   async init(): Promise<void> {
     assertServerOnly();
-    throw new Error('KeyZen.init is implemented in Phase 9');
+    throw new Error('Aegis.init is implemented in Phase 9');
   }
 
   get(key: string): string | undefined {
@@ -37,24 +37,24 @@ export class KeyZen {
 
   inject(): void {
     assertServerOnly();
-    throw new Error('KeyZen.inject is implemented in Phase 9');
+    throw new Error('Aegis.inject is implemented in Phase 9');
   }
 
   async sync(): Promise<void> {
     assertServerOnly();
-    throw new Error('KeyZen.sync is implemented in Phase 9');
+    throw new Error('Aegis.sync is implemented in Phase 9');
   }
 
   run(args: string[]): never {
     assertServerOnly();
     void args;
-    throw new Error('KeyZen.run is implemented in Phase 9');
+    throw new Error('Aegis.run is implemented in Phase 9');
   }
 
   async validate(): Promise<boolean> {
     assertServerOnly();
     void this.options;
-    throw new Error('KeyZen.validate is implemented in Phase 9');
+    throw new Error('Aegis.validate is implemented in Phase 9');
   }
 
   disconnect(): void {

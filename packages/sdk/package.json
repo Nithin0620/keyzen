@@ -1,5 +1,5 @@
 {
-  "name": "keyzen",
+  "name": "aegis",
   "version": "0.1.0",
   "type": "module",
   "main": "./dist/index.cjs",
@@ -13,7 +13,7 @@
     }
   },
   "bin": {
-    "keyzen": "./dist/cli.js"
+    "aegis": "./dist/cli.js"
   },
   "files": ["dist"],
   "scripts": {

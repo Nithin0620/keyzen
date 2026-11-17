@@ -62,4 +62,14 @@ describe('schema definitions', () => {
       expect(definition(name).schema.path('value')).toBeUndefined();
     }
   });
+
+  it('defines project settings and environment archive state', () => {
+    expect(definition('Project').schema.path('settings')).toBeDefined();
+    expect(definition('Environment').schema.path('archivedAt')).toBeDefined();
+  });
+
+  it('stores wrapped data keys instead of plaintext values', () => {
+    expect(definition('SecretValue').schema.path('wrappedDek')).toBeDefined();
+    expect(definition('SecretHistory').schema.path('wrappedDek')).toBeDefined();
+  });
 });

@@ -1,5 +1,5 @@
 {
-  "name": "@keyzen/web",
+  "name": "@aegis/web",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -10,7 +10,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "@keyzen/shared": "workspace:*",
+    "@aegis/shared": "workspace:*",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
     "next": "^15.1.0",

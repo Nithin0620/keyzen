@@ -36,6 +36,8 @@ export const InvitationSchema = new Schema(
     invitedBy: { type: Schema.Types.ObjectId, ref: USER_MODEL, required: true },
     expiresAt: { type: Date, required: true, expires: 0 },
     acceptedAt: { type: Date, default: null },
+    declinedAt: { type: Date, default: null },
+    revokedAt: { type: Date, default: null },
   },
   { timestamps: true, strict: true }
 );

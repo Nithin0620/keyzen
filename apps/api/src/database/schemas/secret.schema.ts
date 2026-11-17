@@ -26,14 +26,18 @@ export const SecretValueSchema = new Schema(
     ciphertext: { type: String, required: true },
     iv: { type: String, required: true },
     authTag: { type: String, required: true },
+    wrappedDek: { type: String },
+    dekIv: { type: String },
+    dekAuthTag: { type: String },
     keyId: { type: String, required: true },
-    cipherVersion: { type: Number, required: true, default: 1 },
+    cipherVersion: { type: Number, required: true, default: 2 },
     valueVersion: { type: Number, required: true, default: 1 },
   },
   { timestamps: true, strict: true }
 );
 
 SecretValueSchema.index({ secretId: 1, environmentId: 1 }, { unique: true });
+SecretValueSchema.index({ keyId: 1 });
 
 export const SecretHistorySchema = new Schema(
   {
@@ -43,6 +47,9 @@ export const SecretHistorySchema = new Schema(
     ciphertext: { type: String, required: true },
     iv: { type: String, required: true },
     authTag: { type: String, required: true },
+    wrappedDek: { type: String },
+    dekIv: { type: String },
+    dekAuthTag: { type: String },
     keyId: { type: String, required: true },
     cipherVersion: { type: Number, required: true },
     valueVersion: { type: Number, required: true },

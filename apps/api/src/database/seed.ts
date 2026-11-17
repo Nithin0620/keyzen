@@ -24,7 +24,7 @@ async function main(): Promise<void> {
     const user = await mongoose
       .model(USER_MODEL, UserSchema)
       .findOneAndUpdate(
-        { email: 'dev-seed@keyzen.invalid' },
+        { email: 'dev-seed@aegis.invalid' },
         { $set: { name: 'DEV SEED User' } },
         { upsert: true, new: true, runValidators: true }
       );

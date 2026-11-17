@@ -12,6 +12,7 @@ export const UserSchema = new Schema(
     passwordHash: { type: String, select: false },
     emailVerifiedAt: { type: Date, default: null },
     status: { type: String, enum: ['ACTIVE', 'SUSPENDED'], default: 'ACTIVE', required: true },
+    activeWorkspaceId: { type: Schema.Types.ObjectId, ref: 'Workspace', default: null },
   },
   { timestamps: true, strict: true }
 );
@@ -31,6 +32,7 @@ export const SessionSchema = new Schema(
   {
     userId: { type: Schema.Types.ObjectId, ref: USER_MODEL, required: true, index: true },
     refreshTokenHash: { type: String, required: true, unique: true },
+    familyId: { type: String, required: true, index: true },
     expiresAt: { type: Date, required: true, expires: 0 },
     revokedAt: { type: Date, default: null },
     userAgent: { type: String, maxlength: 500 },

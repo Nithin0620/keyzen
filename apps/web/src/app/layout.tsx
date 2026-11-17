@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'KeyZen',
+  title: 'Aegis',
   description: 'One secure place for all your project secrets.',
 };
 

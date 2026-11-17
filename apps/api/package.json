@@ -1,5 +1,5 @@
 {
-  "name": "@keyzen/api",
+  "name": "@aegis/api",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -12,12 +12,16 @@
     "db:seed": "node dist/database/seed.js"
   },
   "dependencies": {
-    "@keyzen/shared": "workspace:*",
+    "@aegis/shared": "workspace:*",
+    "@aws-sdk/client-kms": "^3.1169.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/mongoose": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "argon2": "^0.41.0",
+    "google-auth-library": "^9.14.0",
     "ioredis": "^5.4.0",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.9.0",
     "pino": "^9.5.0",
     "reflect-metadata": "^0.2.2",
@@ -26,7 +30,12 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.0",
+    "@nestjs/testing": "^11.2.10",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.10.0",
+    "@types/supertest": "^7.2.1",
+    "supertest": "^7.3.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   }

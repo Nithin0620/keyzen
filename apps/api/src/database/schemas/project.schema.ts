@@ -12,6 +12,7 @@ export const ProjectSchema = new Schema(
     name: { type: String, required: true, trim: true, maxlength: 120 },
     slug: { type: String, required: true, lowercase: true, trim: true, maxlength: 48 },
     description: { type: String, maxlength: 500 },
+    settings: { type: Schema.Types.Mixed, default: {} },
     archivedAt: { type: Date, default: null },
   },
   { timestamps: true, strict: true }
@@ -38,6 +39,7 @@ export const EnvironmentSchema = new Schema(
     workspaceId: { type: Schema.Types.ObjectId, ref: WORKSPACE_MODEL, required: true, index: true },
     name: { type: String, required: true, trim: true, maxlength: 80 },
     slug: { type: String, required: true, lowercase: true, trim: true, maxlength: 48 },
+    archivedAt: { type: Date, default: null },
   },
   { timestamps: true, strict: true }
 );
