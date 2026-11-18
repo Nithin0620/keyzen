@@ -15,6 +15,33 @@ export class KeyRotationService {
     private readonly registry: KeyProviderRegistry
   ) {}
 
+  async rotateDueKeys(targetKeyId: string): Promise<number> {
+    if (!this.registry.has(targetKeyId)) {
+      throw new BadRequestException('Unknown key id');
+    }
+    const values = await this.secretValues
+      .find({ $or: [{ keyId: { $ne: targetKeyId } }, { cipherVersion: { $ne: 2 } }] })
+      .exec();
+    const secrets = await this.secrets
+      .find({ _id: { $in: values.map((value) => value.secretId) } })
+      .exec();
+    const projectBySecret = new Map(secrets.map((secret) => [String(secret._id), String(secret.projectId)]));
+    let rotated = 0;
+    for (const value of values) {
+      const projectId = projectBySecret.get(String(value.secretId));
+      if (!projectId) {
+        continue;
+      }
+      const workspaceId = String(value.workspaceId);
+      const aad = valueAad(workspaceId, projectId, String(value.environmentId), String(value.secretId));
+      const plaintext = await this.cipher.decrypt(value, aad);
+      const encrypted = await this.cipher.encrypt(plaintext, aad, targetKeyId);
+      await this.secretValues.updateOne({ _id: (value as any)._id }, { $set: encrypted });
+      rotated += 1;
+    }
+    return rotated;
+  }
+
   async rotateProjectKeys(
     userId: string,
     workspaceId: string,

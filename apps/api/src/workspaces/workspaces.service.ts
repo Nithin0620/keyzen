@@ -42,7 +42,9 @@ export class WorkspacesService {
     private readonly subscriptions: Model<TenantRecord>,
     private readonly connection: Connection,
     private readonly mail: MailService,
-    private readonly access: WorkspaceAccessService
+    private readonly access: WorkspaceAccessService,
+    private readonly webhookDeliveries?: Model<any>,
+    private readonly stripeEvents?: Model<any>
   ) {}
 
   async create(userId: string, input: WorkspaceCreateInput): Promise<WorkspaceView> {
@@ -166,6 +168,12 @@ export class WorkspacesService {
       await this.secrets.deleteMany({ workspaceId: objectWorkspaceId }, options);
       await this.serviceTokens.deleteMany({ workspaceId: objectWorkspaceId }, options);
       await this.webhooks.deleteMany({ workspaceId: objectWorkspaceId }, options);
+      if (this.webhookDeliveries) {
+        await this.webhookDeliveries.deleteMany({ workspaceId: objectWorkspaceId }, options);
+      }
+      if (this.stripeEvents) {
+        await this.stripeEvents.deleteMany({ workspaceId: objectWorkspaceId }, options);
+      }
       await this.auditLogs.deleteMany({ workspaceId: objectWorkspaceId }, options);
       await this.subscriptions.deleteMany({ workspaceId: objectWorkspaceId }, options);
       await this.projects.deleteMany({ workspaceId: objectWorkspaceId }, options);

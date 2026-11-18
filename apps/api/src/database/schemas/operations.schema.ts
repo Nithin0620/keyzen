@@ -6,6 +6,8 @@ import { WORKSPACE_MODEL } from './workspace.schema';
 export const SERVICE_TOKEN_MODEL = 'ServiceToken';
 export const AUDIT_LOG_MODEL = 'AuditLog';
 export const WEBHOOK_MODEL = 'Webhook';
+export const WEBHOOK_DELIVERY_MODEL = 'WebhookDelivery';
+export const PROCESSED_STRIPE_EVENT_MODEL = 'ProcessedStripeEvent';
 export const SUBSCRIPTION_MODEL = 'Subscription';
 
 export const ServiceTokenSchema = new Schema(
@@ -49,7 +51,44 @@ export const WebhookSchema = new Schema(
     url: { type: String, required: true, maxlength: 2048 },
     events: { type: [String], required: true, default: [] },
     secretHash: { type: String, required: true },
+    signingSecret: {
+      ciphertext: { type: String, required: true },
+      iv: { type: String, required: true },
+      authTag: { type: String, required: true },
+      keyId: { type: String, required: true },
+    },
     isActive: { type: Boolean, default: true, required: true },
+  },
+  { timestamps: true, strict: true }
+);
+
+export const WebhookDeliverySchema = new Schema(
+  {
+    workspaceId: { type: Schema.Types.ObjectId, ref: WORKSPACE_MODEL, required: true, index: true },
+    projectId: { type: Schema.Types.ObjectId, ref: PROJECT_MODEL, required: true, index: true },
+    webhookId: { type: Schema.Types.ObjectId, ref: WEBHOOK_MODEL, required: true, index: true },
+    eventId: { type: String, required: true },
+    event: { type: String, required: true, maxlength: 80 },
+    status: { type: String, enum: ['PENDING', 'DELIVERED', 'FAILED'], default: 'PENDING', required: true },
+    attempts: { type: Number, min: 0, default: 0, required: true },
+    nextAttemptAt: { type: Date, default: null },
+    responseStatus: { type: Number, default: null },
+    error: { type: String, default: null, maxlength: 500 },
+    payload: { type: Schema.Types.Mixed, default: {} },
+  },
+  { timestamps: true, strict: true }
+);
+
+WebhookDeliverySchema.index({ workspaceId: 1, createdAt: -1 });
+WebhookDeliverySchema.index({ projectId: 1, createdAt: -1 });
+WebhookDeliverySchema.index({ status: 1, nextAttemptAt: 1 });
+
+export const ProcessedStripeEventSchema = new Schema(
+  {
+    workspaceId: { type: Schema.Types.ObjectId, ref: WORKSPACE_MODEL, required: true, index: true },
+    eventId: { type: String, required: true, unique: true },
+    type: { type: String, required: true, maxlength: 120 },
+    expiresAt: { type: Date, required: true, expires: 0 },
   },
   { timestamps: true, strict: true }
 );

@@ -63,7 +63,8 @@ export class ProjectsService {
     private readonly webhooks: Model<any>,
     private readonly connection: Connection,
     private readonly cipher: EnvelopeCipherService,
-    private readonly access: ProjectAccessService
+    private readonly access: ProjectAccessService,
+    private readonly webhookDeliveries?: Model<any>
   ) {}
 
   async create(userId: string, workspaceId: string, input: ProjectCreateInput): Promise<ProjectView> {
@@ -185,6 +186,9 @@ export class ProjectsService {
       await this.serviceTokens.deleteMany({ projectId: projectObjectId, workspaceId: workspace }, { session });
       await this.auditLogs.deleteMany({ projectId: projectObjectId, workspaceId: workspace }, { session });
       await this.webhooks.deleteMany({ projectId: projectObjectId, workspaceId: workspace }, { session });
+      if (this.webhookDeliveries) {
+        await this.webhookDeliveries.deleteMany({ projectId: projectObjectId, workspaceId: workspace }, { session });
+      }
       await this.projects.deleteOne({ _id: projectObjectId, workspaceId: workspace }, { session });
     });
   }

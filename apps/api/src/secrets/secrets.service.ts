@@ -17,6 +17,7 @@ import { EnvelopeCipherService, type EnvelopeCipherRecord } from '../crypto/enve
 import { valueAad } from '../crypto/value-cipher.service';
 import { withTransaction } from '../database/transaction';
 import { ProjectAccessService } from '../projects/project-access.service';
+import type { WebhookDispatcher } from '../webhooks/webhook-dispatcher';
 import { EnvParseError, parseEnvContent } from './env-parser';
 import { maskSecretValue } from './secret-mask';
 import type {
@@ -70,7 +71,8 @@ export class SecretsService {
     private readonly connection: Connection,
     private readonly access: ProjectAccessService,
     private readonly cipher: EnvelopeCipherService,
-    private readonly audits: AuditService
+    private readonly audits: AuditService,
+    private readonly webhooks?: WebhookDispatcher
   ) {}
 
   async create(
@@ -126,6 +128,7 @@ export class SecretsService {
       );
       return created;
     });
+    await this.emit(String(secret._id), workspaceId, projectId, 'secret.created');
     return this.view(secret, input.value);
   }
 
@@ -251,6 +254,9 @@ export class SecretsService {
     }
     if (Object.keys(metadata).length > 0) {
       await this.secrets.updateOne({ _id: secret._id }, { $set: metadata });
+      if (input.value === undefined) {
+        await this.emit(secretId, workspaceId, projectId, 'secret.updated');
+      }
     }
     if (input.value !== undefined && input.environmentId) {
       await this.access.requireEnvironment(userId, workspaceId, projectId, input.environmentId);
@@ -278,6 +284,7 @@ export class SecretsService {
     const secret = await this.findSecret(workspaceId, projectId, secretId);
     await this.access.requireEnvironment(userId, workspaceId, projectId, environmentId);
     await this.storeValue(workspaceId, projectId, environmentId, String(secret._id), input.value, userId);
+    await this.emit(secretId, workspaceId, projectId, 'secret.updated');
     return this.get(userId, workspaceId, projectId, secretId, environmentId);
   }
 
@@ -298,6 +305,7 @@ export class SecretsService {
       await this.secretHistory.deleteMany({ secretId: secret._id, workspaceId: objectId(workspaceId) }, { session });
       await this.secrets.deleteOne({ _id: secret._id }, { session });
     });
+    await this.emit(secretId, workspaceId, projectId, 'secret.deleted');
   }
 
   async import(
@@ -519,6 +527,18 @@ export class SecretsService {
       );
       return { id: String(secret._id), name: secret.name, version: valueVersion };
     });
+  }
+
+  private async emit(
+    secretId: string,
+    workspaceId: string,
+    projectId: string,
+    event: 'secret.created' | 'secret.updated' | 'secret.deleted'
+  ): Promise<void> {
+    if (!this.webhooks) {
+      return;
+    }
+    await this.webhooks.dispatch(workspaceId, projectId, event, { secretId });
   }
 
   private async requireAccess(userId: string, workspaceId: string, projectId: string): Promise<void> {

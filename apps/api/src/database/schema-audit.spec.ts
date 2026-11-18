@@ -29,11 +29,13 @@ describe('schema definitions', () => {
     'ServiceToken',
     'AuditLog',
     'Webhook',
+    'WebhookDelivery',
+    'ProcessedStripeEvent',
     'Subscription',
   ];
 
   it('defines all collections', () => {
-    expect(modelDefinitions).toHaveLength(18);
+    expect(modelDefinitions).toHaveLength(20);
   });
 
   it.each(tenantModels)('%s is tenant scoped', (name) => {
@@ -71,5 +73,12 @@ describe('schema definitions', () => {
   it('stores wrapped data keys instead of plaintext values', () => {
     expect(definition('SecretValue').schema.path('wrappedDek')).toBeDefined();
     expect(definition('SecretHistory').schema.path('wrappedDek')).toBeDefined();
+  });
+
+  it('stores webhook secrets, delivery state and Stripe idempotency keys', () => {
+    expect(definition('Webhook').schema.path('signingSecret.ciphertext')).toBeDefined();
+    expect(definition('WebhookDelivery').schema.path('status')).toBeDefined();
+    expect(uniqueKeys(definition('ProcessedStripeEvent').schema)).toContain('eventId');
+    expect(definition('ProcessedStripeEvent').schema.path('expiresAt')).toBeDefined();
   });
 });

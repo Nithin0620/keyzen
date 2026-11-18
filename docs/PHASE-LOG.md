@@ -560,3 +560,44 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 11 integrations and background work only after explicit continuation.
 - Keep Stripe/webhook secrets redacted; ensure forged signatures, SSRF URLs and direct billing-state writes are rejected by tests.
+
+## Phase 11 — Integrations and background work
+
+- Status: done; date: 2026-11-18.
+- Files: 18 created, 21 modified, 39 total; 6 new test files with 36 new tests.
+
+### What changed
+
+- Added Stripe Checkout/customer gateway and signature-verified webhook handling with event idempotency and awaited system audit records.
+- Added billing routes for DB-backed reads, admin checkout creation and the public raw-body Stripe webhook route.
+- Added outbound webhooks with encrypted signing secrets, HMAC headers, event allowlist, delivery log, backoff retries and lifecycle events.
+- Added SSRF-safe URL validation for HTTPS-only endpoints with private, loopback, metadata, reserved and IPv4-mapped IPv6 address checks.
+- Added webhook management routes for create, list, rotate secret, deactivate and delivery history.
+- Added Resend-backed email templates for verification, reset, invites and security alerts, including operator alert delivery.
+- Added scheduled jobs for token expiry cleanup, stale invitation cleanup, audit retention, due key rotation and webhook retries.
+- Added job scheduling with interval limits, Redis locking when available and failure alerts on every job error.
+
+### Decisions
+
+- Checkout never writes local subscription state; plan, status and Stripe identifiers change only through verified webhooks.
+- Webhook signing secrets are encrypted at rest and bound by AAD to workspace, project and webhook identifiers.
+- Production requires explicit Stripe, webhook encryption and operations alert settings instead of silent fallbacks.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass
+- API tests pass with 151 tests; SDK tests remain green at 19 tests; full workspace total is 170 tests.
+- Billing tests prove forged signatures are rejected and no direct billing-state route exists.
+- Webhook tests prove private/metadata targets are blocked, payloads are signed and failed deliveries retry with backoff.
+
+### Risks / issues found
+
+- Stripe and Resend integrations are exercised with fake credentials only; live provider smoke tests remain outstanding.
+- DNS is validated before dispatch, but DNS rebinding between validation and fetch needs stronger pinning in later hardening.
+- In-process scheduling relies on Redis locks for multi-instance deployments; local development runs without distributed locking.
+
+### Carryover to next phase
+
+- Implement Phase 12 hardening and observability only after explicit continuation.
+- Add Stripe/Resend smoke tests, DNS rebinding mitigation and production runbooks in later work.

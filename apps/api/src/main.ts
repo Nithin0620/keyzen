@@ -17,13 +17,17 @@ async function bootstrap(): Promise<void> {
     secrets: container.secrets,
     rotation: container.rotation,
     serviceTokens: container.serviceTokens,
+    billing: container.billing,
+    webhooks: container.webhooks,
   });
 
   const server = app.listen(env.API_PORT, () => {
     console.log(`Aegis API listening on port ${env.API_PORT}`);
   });
+  container.jobs.start(container.jobDefinitions);
 
   const shutdown = (): void => {
+    container.jobs.stop();
     server.close(() => {
       void container.connection.close();
       if (container.redis) {

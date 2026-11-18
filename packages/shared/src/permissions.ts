@@ -10,6 +10,7 @@ export const permissions = [
   'environments.manage',
   'members.invite',
   'credentials.manage',
+  'webhooks.manage',
   'audit.read',
   'billing.manage',
 ] as const;

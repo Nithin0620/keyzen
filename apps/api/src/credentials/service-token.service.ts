@@ -3,6 +3,7 @@ import { Types, type Model } from 'mongoose';
 import { NotFoundException, UnauthorizedException } from '../common/http-error';
 import { hashToken, randomToken } from '../common/tokens';
 import { ProjectAccessService } from '../projects/project-access.service';
+import type { WebhookDispatcher } from '../webhooks/webhook-dispatcher';
 import type { RevocationCache } from './revocation-cache';
 
 export interface ServiceTokenIdentity {
@@ -60,7 +61,8 @@ export class ServiceTokenService {
   constructor(
     private readonly tokens: Model<ServiceTokenRecord>,
     private readonly access: ProjectAccessService,
-    private readonly revocations: RevocationCache
+    private readonly revocations: RevocationCache,
+    private readonly webhooks?: WebhookDispatcher
   ) {}
 
   async authenticate(token: string): Promise<ServiceTokenIdentity> {
@@ -116,6 +118,7 @@ export class ServiceTokenService {
         expiresAt: expiryDate(input.expiresInDays),
       },
     ]);
+    await this.emit(String(created._id), workspaceId, projectId, 'service_token.created');
     return { ...this.view(created), token: generated.token };
   }
 
@@ -159,6 +162,7 @@ export class ServiceTokenService {
     if (!updated) {
       throw new NotFoundException();
     }
+    await this.emit(tokenId, workspaceId, projectId, 'service_token.rotated');
     return { ...this.view(updated), token: generated.token };
   }
 
@@ -177,9 +181,22 @@ export class ServiceTokenService {
       if (!updated) {
         throw new NotFoundException();
       }
+      await this.emit(tokenId, workspaceId, projectId, 'service_token.revoked');
       return this.view(updated);
     }
     return this.view(record);
+  }
+
+  private async emit(
+    tokenId: string,
+    workspaceId: string,
+    projectId: string,
+    event: 'service_token.created' | 'service_token.rotated' | 'service_token.revoked'
+  ): Promise<void> {
+    if (!this.webhooks) {
+      return;
+    }
+    await this.webhooks.dispatch(workspaceId, projectId, event, { tokenId });
   }
 
   private async requireAccess(userId: string, workspaceId: string, projectId: string): Promise<void> {

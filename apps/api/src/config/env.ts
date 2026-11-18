@@ -21,6 +21,20 @@ const schema = z
     GOOGLE_CLIENT_ID: z.string().optional(),
     GOOGLE_CLIENT_SECRET: z.string().optional(),
     GOOGLE_CALLBACK_URL: z.string().url().optional(),
+    STRIPE_SECRET_KEY: z.string().optional(),
+    STRIPE_WEBHOOK_SECRET: z.string().optional(),
+    STRIPE_PRICE_PRO: z.string().optional(),
+    STRIPE_PRICE_ENTERPRISE: z.string().optional(),
+    WEBHOOK_SECRET_ENCRYPTION_KEY: z.string().min(32).optional(),
+    WEBHOOK_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+    WEBHOOK_TIMEOUT_MS: z.coerce.number().int().positive().default(5000),
+    OPS_ALERT_EMAIL: z.string().email().optional(),
+    JOB_TOKEN_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(3_600_000),
+    JOB_KEY_ROTATION_INTERVAL_MS: z.coerce.number().int().positive().default(86_400_000),
+    JOB_AUDIT_RETENTION_INTERVAL_MS: z.coerce.number().int().positive().default(86_400_000),
+    JOB_INVITATION_CLEANUP_INTERVAL_MS: z.coerce.number().int().positive().default(3_600_000),
+    JOB_WEBHOOK_RETRY_INTERVAL_MS: z.coerce.number().int().positive().default(60_000),
+    JOB_KEY_ROTATION_TARGET_ID: z.string().optional(),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV === 'production' && !env.AEGIS_MASTER_KEY && !env.AEGIS_KMS_KEY_ID) {
@@ -39,6 +53,36 @@ const schema = z
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         message: 'RESEND_API_KEY is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.OPS_ALERT_EMAIL) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'OPS_ALERT_EMAIL is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.WEBHOOK_SECRET_ENCRYPTION_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'WEBHOOK_SECRET_ENCRYPTION_KEY is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.STRIPE_SECRET_KEY) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'STRIPE_SECRET_KEY is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.STRIPE_WEBHOOK_SECRET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'STRIPE_WEBHOOK_SECRET is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && (!env.STRIPE_PRICE_PRO || !env.STRIPE_PRICE_ENTERPRISE)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'STRIPE_PRICE_PRO and STRIPE_PRICE_ENTERPRISE are required in production',
       });
     }
   });

@@ -22,6 +22,7 @@ export function createApp(deps: RouteDependencies): Express {
     next();
   });
 
+  app.use('/billing/webhook', express.raw({ type: 'application/json', limit: '1mb' }));
   app.use(express.json({ limit: '1mb' }));
   app.use(requestLogger);
 

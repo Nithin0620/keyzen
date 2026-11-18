@@ -9,4 +9,5 @@ export const PUBLIC_ROUTES = new Set([
   'POST /auth/password-reset/confirm',
   'GET /auth/google',
   'GET /auth/google/callback',
+  'POST /billing/webhook',
 ]);

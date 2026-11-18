@@ -32,7 +32,7 @@ describe('route authorization audit', () => {
     const audited = ROUTES.filter((route) => route.audit);
     expect(audited.length).toBeGreaterThan(0);
     for (const route of ROUTES) {
-      if (/^(secrets|workspaces|projects|audit|credentials)\./.test(route.name)) {
+      if (!route.public && /^(secrets|workspaces|projects|audit|credentials|billing|webhooks)\./.test(route.name)) {
         expect(route.audit).toBe(route.method === 'get' ? 'read' : 'write');
       }
       if (/^runtime\./.test(route.name)) {

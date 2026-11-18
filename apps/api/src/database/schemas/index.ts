@@ -35,6 +35,8 @@ export const modelDefinitions: ModelDefinition[] = [
   { name: operations.SERVICE_TOKEN_MODEL, schema: operations.ServiceTokenSchema },
   { name: operations.AUDIT_LOG_MODEL, schema: operations.AuditLogSchema },
   { name: operations.WEBHOOK_MODEL, schema: operations.WebhookSchema },
+  { name: operations.WEBHOOK_DELIVERY_MODEL, schema: operations.WebhookDeliverySchema },
+  { name: operations.PROCESSED_STRIPE_EVENT_MODEL, schema: operations.ProcessedStripeEventSchema },
   { name: operations.SUBSCRIPTION_MODEL, schema: operations.SubscriptionSchema },
   { name: version.SCHEMA_VERSION_MODEL, schema: version.SchemaVersionSchema },
 ];
