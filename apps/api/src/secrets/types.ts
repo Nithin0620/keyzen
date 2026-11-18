@@ -1,3 +1,4 @@
+import type { SecretResolveView as SharedSecretResolveView } from '@aegis/shared';
 import type { Types } from 'mongoose';
 import type { EnvelopeCipherRecord } from '../crypto/envelope-cipher.service';
 
@@ -33,3 +34,17 @@ export interface SecretExportEntry {
   name: string;
   value: string;
 }
+
+export interface SecretHistoryView {
+  version: number;
+  changedBy: string;
+  createdAt: string;
+}
+
+export interface SecretRollbackView {
+  id: string;
+  name: string;
+  version: number;
+}
+
+export type SecretResolveView = SharedSecretResolveView;

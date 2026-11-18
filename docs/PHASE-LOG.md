@@ -354,3 +354,130 @@ Typecheck, lint, 88 tests and the full build pass. Tests cover AAD swaps, fresh 
 
 - Add secret history, rollback and awaited audit attribution in the same transactions as value writes.
 - Run live staging tests for KMS, rotation and new wrapped-key fields.
+
+## Phase 7 — Express backend migration
+
+- Status: done
+- Date: 2026-11-17
+- Files created: 6
+- Files modified: 41
+- Files deleted: 11
+- Total files changed: 58
+- Tests added: 0 new test files; 6 controller/authz specs rewritten
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass
+
+### Main thing done
+
+Replaced the NestJS backend with a plain Express 4 app while preserving all 59 HTTP routes and the full product behavior. Kept Next.js, MongoDB/Mongoose, Zod, Argon2/JWT, KMS and the shared contracts; Nest framework, CLI, testing, decorators, modules and global guard are gone.
+
+### Files touched
+
+- `apps/api/src/app.ts`, `apps/api/src/main.ts`, `apps/api/src/container.ts`, `apps/api/src/http/**`, `apps/api/src/common/http-error.ts` — Express bootstrap, CORS, JSON body parsing, manual DI container, route registration, async error handling and local HTTP exception classes.
+- `apps/api/src/authz/route-manifest.ts`, `apps/api/src/authz/public-routes.ts`, `apps/api/src/authz/route-key.ts`, `apps/api/src/authz/require-permission.decorator.ts` — explicit route manifest replaces Reflector metadata; deny-by-default remains enforced at registration.
+- `apps/api/src/auth/**`, `apps/api/src/workspaces/**`, `apps/api/src/projects/**`, `apps/api/src/secrets/**`, `apps/api/src/health/**`, `apps/api/src/crypto/**`, `apps/api/src/database/**`, `apps/api/package.json`, `pnpm-lock.yaml`, `README.md`, `docs/PLAN.md` — controllers became route factories, services became plain classes, Nest dependencies/config were removed and Express was documented.
+
+### Key decisions
+
+- Every route is declared once with method, full path, name and either `public: true` or a permission requirement; registration throws on public-allowlist mismatch and on missing permission metadata.
+- Ten authenticated-but-unscoped routes use the `AUTHENTICATED` sentinel; 39 scoped routes keep their original permissions; 10 routes remain public.
+- Zod validation moved to middleware; JWT auth and policy evaluation moved to per-route middleware; exceptions map through one Express error handler. Constructor injection was replaced by explicit construction in `createContainer()` and direct Mongoose model registration.
+
+### Verification
+
+Typecheck, lint, 84 tests across 20 API test files and the full build pass. The count dropped from 88 because the deleted Nest `policy.guard.spec.ts` was replaced by route-manifest audits and the existing policy/permission-matrix coverage. Controller specs now drive real Express apps with Supertest, signed access tokens and stubbed services; auth cookies, RBAC denial, status codes, validation and rate limits still pass. No live MongoDB or AWS KMS was exercised.
+
+### Risks / issues found
+
+- CORS now sends one configured origin string from `WEB_ORIGIN`; multi-origin wildcard/reflector behavior was never in scope and remains unsupported.
+- Swagger/OpenAPI was listed in the old Nest stack row but was never implemented; `require-permission.decorator.ts` remains a small re-export shim until imports are updated.
+
+### Carryover to next phase
+
+- Continue with the original Phase 7 audit/hardening work against the Express route manifest and re-run live staging checks for Atlas, KMS, cookies and CORS before exposing the API publicly.
+
+## Phase 7 — Versioning, rollback and audit
+
+- Status: done
+- Date: 2026-11-18
+- Files created: 10
+- Files modified: 21
+- Files deleted: 0
+- Total files changed: 31
+- Tests added: 4 new test files; 13 new tests
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass
+
+### Main thing done
+
+Implemented the original Phase 7 plan against the Express route manifest. Secret value writes now increment versions atomically, write immutable history rows in the same Mongo transaction, and emit transaction-scoped audit records. Added confirmation-gated rollback and read-only history/audit endpoints with tenant and permission guards.
+
+### Files touched
+
+- `apps/api/src/secrets/secrets.service.ts`, `apps/api/src/secrets/secrets.controller.ts`, `apps/api/src/secrets/types.ts`, `packages/shared/src/contracts/secrets.ts` — `$inc` versioning with duplicate-key retry, history writes, rollback, history query and typed contracts.
+- `apps/api/src/audit/**`, `apps/api/src/http/router.ts`, `apps/api/src/authz/route-manifest.ts`, `apps/api/src/app.ts`, `apps/api/src/container.ts` — awaited audit middleware, actor context, redacted metadata, real actor ids, hashed IPs and workspace-scoped audit reads.
+- `apps/api/src/common/redact.ts`, `apps/api/src/logging/logger.ts`, `apps/api/src/config/env.ts`, `apps/api/src/database/indexes.ts`, `.env.example` — shared redaction helper, Pino sink with redaction, `AUDIT_RETENTION_DAYS` and configurable TTL index creation.
+
+### Key decisions
+
+- `auditedRoute()` marks every secrets, workspaces, projects and audit route as `read` or `write` in the manifest; audit is applied after auth, validation and policy checks.
+- Write audits are awaited before handlers run, so an audit failure returns `500` and blocks the mutation. Read audits are awaited before the response is sent.
+- Service-level value-change audits use the same Mongo session as `secretvalues` and `secrethistory`; history reuses stored ciphertext and never rewrites plaintext.
+- Rollback creates a new version by copying the selected history row's encrypted payload; old history is never deleted or edited.
+
+### Verification
+
+Typecheck and lint pass. API tests pass with 97 tests across 24 test files, including rollback history preservation, actor attribution, redaction, failed-audit blocking and log-sink scanning. Full workspace build is included in the final verification command.
+
+### Risks / issues found
+
+- OTel and Sentry are not installed; `redactSensitive()` and the Pino redaction config are the only sink protections wired today.
+- Service-token actors are represented in the audit schema and context type, but Phase 8 must wire them into authentication before they can appear in real audit rows.
+- Audit TTL is configured at index sync time, so existing deployments must rerun `pnpm db:indexes` after setting `AUDIT_RETENTION_DAYS`.
+
+### Carryover to next phase
+
+- Implement Phase 8 service credentials and the runtime resolve API with `ags_` tokens, hash-only storage, one-time display, expiry, revocation and per-token audit.
+- Ensure token authentication populates `SERVICE_TOKEN` audit actors and that resolve requests inherit the same redaction and tenant scoping rules.
+- Run live staging checks for Mongo transactions, audit TTL indexes, KMS, cookies and CORS before exposing the API publicly.
+
+## Phase 8 — Service credentials and runtime API
+
+- Status: done; date: 2026-11-18.
+- Files: 9 created, 20 modified, 29 total; 4 new test files with 15 new tests.
+
+### What changed
+
+- Added scoped `ags_` service tokens with SHA-256 hash-only storage, one-time plaintext display, prefix-only listing, expiry, rotation and revocation.
+- Added `ServiceTokenService` authentication with revocation-cache checks, `lastUsedAt` updates, active/status/expiry validation and immediate old-hash invalidation on rotate/revoke.
+- Added Redis revocation cache for production and in-memory fallback for local/test; auth fails closed when Redis rejects a revocation check.
+- Added bearer-token request authentication and attached token identity for audit attribution without cookie fallback.
+- Added credential-management create/list/rotate/revoke routes under project scope, guarded by `credentials.manage` and audited.
+- Added `POST /v1/secrets/resolve` with per-token rate limiting, token-derived tenant/project/environment scope, optional name filtering and per-call audited reads.
+- Added `GET /v1/validate` for SDK/CLI startup checks; response exposes only token scope and expiry, never secrets or hashes.
+- Added `RouteAuth` to the central manifest and wired service-token auth through the Express router with `SERVICE_TOKEN` audit actors.
+- Added `ProjectAccessService.requireEnvironmentScope()` while preserving existing archived-environment behavior for project management flows.
+- Added `SecretsService.resolve()` and `SecretsService.validate()` that decrypt only values bound to the token environment.
+- Added shared contracts for token creation, rotation, ID params, secret resolution and runtime validation.
+- Added `SERVICE_TOKEN_RATE_LIMIT` and `SERVICE_TOKEN_RATE_WINDOW_MS` with 60 requests per 60 seconds defaults.
+- Wired Redis, revocation cache and service-token DI into the container, app, router, startup and shutdown paths.
+- Updated controller specs for expanded route dependencies and added coverage for tokens, revocation, runtime resolve, rate limiting and audit metadata.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass
+- Typecheck, lint and full workspace build pass.
+- API tests pass with 112 tests across 28 test files, including hash non-disclosure, environment isolation, revoked-token rejection, rotate invalidation, rate limiting and service-token audit actors.
+- Runtime route audit coverage confirms only `/v1/secrets/resolve` and `/v1/validate` use service-token auth.
+
+### Risks / issues found
+
+- Rate limiting remains in-process; multi-instance deployments need a shared Redis-backed limiter before public rollout.
+- Redis revocation is enabled only in production; local/test use an in-memory cache, so horizontal scaling outside production would not share revocations.
+- Mongo TTL cleanup can remove expired token documents; audit actor IDs remain traceable through audit rows.
+
+### Carryover to next phase
+
+- Implement Phase 9 SDK/CLI against the runtime API; do not start it in this change.
+- Keep service-token plaintext out of SDK logs, shell history and persisted config; run staging checks for Redis revocation, production rate limiting and KMS before public exposure.

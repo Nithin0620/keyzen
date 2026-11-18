@@ -1,15 +1,8 @@
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import argon2 from 'argon2';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
+import { BadRequestException, UnauthorizedException } from '../common/http-error';
 import { validateEnv } from '../config/env';
 import { hashToken, randomToken } from '../common/tokens';
-import {
-  OAUTH_ACCOUNT_MODEL,
-  SESSION_MODEL,
-  USER_MODEL,
-  VERIFICATION_TOKEN_MODEL,
-} from '../database/schemas';
 import { withTransaction } from '../database/transaction';
 import type { SignupInput } from '@aegis/shared';
 import type { GoogleIdentity } from './google.service';
@@ -21,16 +14,15 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-@Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(USER_MODEL) private readonly users: Model<UserRecord>,
-    @InjectModel(SESSION_MODEL) private readonly sessions: Model<SessionRecord>,
-    @InjectModel(VERIFICATION_TOKEN_MODEL) private readonly verifications: Model<VerificationRecord>,
-    @InjectModel(OAUTH_ACCOUNT_MODEL) private readonly oauthAccounts: Model<{ userId: Types.ObjectId; provider: string; providerUserId: string }>,
-    @InjectConnection() private readonly connection: Connection,
-    @Inject(TokenService) private readonly tokens: TokenService,
-    @Inject(MailService) private readonly mail: MailService
+    private readonly users: Model<UserRecord>,
+    private readonly sessions: Model<SessionRecord>,
+    private readonly verifications: Model<VerificationRecord>,
+    private readonly oauthAccounts: Model<{ userId: Types.ObjectId; provider: string; providerUserId: string }>,
+    private readonly connection: Connection,
+    private readonly tokens: TokenService,
+    private readonly mail: MailService
   ) {}
 
   async signup(input: SignupInput): Promise<{ message: string }> {

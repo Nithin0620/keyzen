@@ -1,5 +1,5 @@
-import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { OAuth2Client } from 'google-auth-library';
+import { BadRequestException, UnauthorizedException } from '../common/http-error';
 import { validateEnv } from '../config/env';
 
 export interface GoogleIdentity {
@@ -9,7 +9,6 @@ export interface GoogleIdentity {
   emailVerified: boolean;
 }
 
-@Injectable()
 export class GoogleService {
   private client(): OAuth2Client {
     const env = validateEnv();

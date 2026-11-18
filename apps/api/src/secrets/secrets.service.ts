@@ -1,10 +1,3 @@
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type {
   EnvImportInput,
   SecretCreateInput,
@@ -13,14 +6,28 @@ import type {
   SecretValueUpsertInput,
 } from '@aegis/shared';
 import { Types, type ClientSession, type Connection, type Model } from 'mongoose';
-import { EnvelopeCipherService } from '../crypto/envelope-cipher.service';
+import { currentAuditContext } from '../audit/audit-context';
+import type { AuditService } from '../audit/audit.service';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '../common/http-error';
+import { EnvelopeCipherService, type EnvelopeCipherRecord } from '../crypto/envelope-cipher.service';
 import { valueAad } from '../crypto/value-cipher.service';
-import { SECRET_HISTORY_MODEL, SECRET_MODEL, SECRET_VALUE_MODEL } from '../database/schemas';
 import { withTransaction } from '../database/transaction';
 import { ProjectAccessService } from '../projects/project-access.service';
 import { EnvParseError, parseEnvContent } from './env-parser';
 import { maskSecretValue } from './secret-mask';
-import type { SecretExportEntry, SecretRecord, SecretValueRecord, SecretView } from './types';
+import type {
+  SecretExportEntry,
+  SecretHistoryView,
+  SecretRecord,
+  SecretResolveView,
+  SecretRollbackView,
+  SecretValueRecord,
+  SecretView,
+} from './types';
 
 function objectId(value: string): Types.ObjectId {
   if (!Types.ObjectId.isValid(value)) {
@@ -33,15 +40,37 @@ function escapeRegex(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-@Injectable()
+function cipherFields(record: EnvelopeCipherRecord): EnvelopeCipherRecord {
+  return {
+    ciphertext: record.ciphertext,
+    iv: record.iv,
+    authTag: record.authTag,
+    wrappedDek: record.wrappedDek,
+    dekIv: record.dekIv,
+    dekAuthTag: record.dekAuthTag,
+    keyId: record.keyId,
+    cipherVersion: record.cipherVersion,
+  };
+}
+
+function isDuplicateKeyError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: number }).code === 11000
+  );
+}
+
 export class SecretsService {
   constructor(
-    @InjectModel(SECRET_MODEL) private readonly secrets: Model<SecretRecord>,
-    @InjectModel(SECRET_VALUE_MODEL) private readonly secretValues: Model<SecretValueRecord>,
-    @InjectModel(SECRET_HISTORY_MODEL) private readonly secretHistory: Model<any>,
-    @InjectConnection() private readonly connection: Connection,
+    private readonly secrets: Model<SecretRecord>,
+    private readonly secretValues: Model<SecretValueRecord>,
+    private readonly secretHistory: Model<any>,
+    private readonly connection: Connection,
     private readonly access: ProjectAccessService,
-    private readonly cipher: EnvelopeCipherService
+    private readonly cipher: EnvelopeCipherService,
+    private readonly audits: AuditService
   ) {}
 
   async create(
@@ -77,15 +106,23 @@ export class SecretsService {
         String(created._id),
         input.value
       );
-      await this.secretValues.create(
-        {
-          secretId: created._id,
-          environmentId: objectId(input.environmentId),
-          workspaceId: objectId(workspaceId),
-          ...encrypted,
-          valueVersion: 1,
-        },
-        { session }
+      const version = await this.writeEncryptedValue(
+        workspaceId,
+        String(created._id),
+        input.environmentId,
+        encrypted,
+        userId,
+        session
+      );
+      await this.recordValueAudit(
+        workspaceId,
+        projectId,
+        String(created._id),
+        input.environmentId,
+        version,
+        'secrets.value.create',
+        userId,
+        session
       );
       return created;
     });
@@ -240,7 +277,7 @@ export class SecretsService {
     await this.requireAccess(userId, workspaceId, projectId);
     const secret = await this.findSecret(workspaceId, projectId, secretId);
     await this.access.requireEnvironment(userId, workspaceId, projectId, environmentId);
-    await this.storeValue(workspaceId, projectId, environmentId, String(secret._id), input.value);
+    await this.storeValue(workspaceId, projectId, environmentId, String(secret._id), input.value, userId);
     return this.get(userId, workspaceId, projectId, secretId, environmentId);
   }
 
@@ -311,6 +348,7 @@ export class SecretsService {
           input.environmentId,
           String(secret._id),
           entry.value,
+          userId,
           session
         );
       }
@@ -351,6 +389,136 @@ export class SecretsService {
     }
     entries.sort((left, right) => left.name.localeCompare(right.name));
     return { entries };
+  }
+
+  async resolve(
+    workspaceId: string,
+    projectId: string,
+    environmentId: string,
+    names?: string[]
+  ): Promise<SecretResolveView> {
+    await this.access.requireEnvironmentScope(workspaceId, projectId, environmentId);
+    const secrets = await this.secrets
+      .find({ workspaceId: objectId(workspaceId), projectId: objectId(projectId) })
+      .exec();
+    const allowed = names ? secrets.filter((secret) => names.includes(secret.name)) : secrets;
+    if (allowed.length === 0) {
+      return { entries: [] };
+    }
+    const values = await this.secretValues
+      .find({
+        workspaceId: objectId(workspaceId),
+        environmentId: objectId(environmentId),
+        secretId: { $in: allowed.map((secret) => secret._id) },
+      })
+      .exec();
+    const nameById = new Map(allowed.map((secret) => [String(secret._id), secret.name]));
+    const entries: SecretExportEntry[] = [];
+    for (const value of values) {
+      const name = nameById.get(String(value.secretId));
+      if (!name) {
+        continue;
+      }
+      entries.push({
+        name,
+        value: await this.cipher.decrypt(
+          value,
+          valueAad(workspaceId, projectId, environmentId, String(value.secretId))
+        ),
+      });
+    }
+    entries.sort((left, right) => left.name.localeCompare(right.name));
+    return { entries };
+  }
+
+  async validate(workspaceId: string, projectId: string, environmentId: string): Promise<void> {
+    await this.access.requireEnvironmentScope(workspaceId, projectId, environmentId);
+  }
+
+  async history(
+    userId: string,
+    workspaceId: string,
+    projectId: string,
+    secretId: string,
+    environmentId: string,
+    limit = 50
+  ): Promise<SecretHistoryView[]> {
+    await this.requireAccess(userId, workspaceId, projectId);
+    await this.findSecret(workspaceId, projectId, secretId);
+    await this.access.requireEnvironment(userId, workspaceId, projectId, environmentId);
+    const history = await this.secretHistory
+      .find({
+        workspaceId: objectId(workspaceId),
+        secretId: objectId(secretId),
+        environmentId: objectId(environmentId),
+      })
+      .sort({ valueVersion: -1 })
+      .limit(limit)
+      .exec();
+    return history.map((entry: any) => ({
+      version: entry.valueVersion,
+      changedBy: entry.changedBy,
+      createdAt: entry.createdAt ? new Date(entry.createdAt).toISOString() : new Date(0).toISOString(),
+    }));
+  }
+
+  async rollback(
+    userId: string,
+    workspaceId: string,
+    projectId: string,
+    secretId: string,
+    environmentId: string,
+    version: number,
+    confirmation: string
+  ): Promise<SecretRollbackView> {
+    if (confirmation !== 'ROLLBACK') {
+      throw new BadRequestException('Confirmation must be ROLLBACK');
+    }
+    await this.requireAccess(userId, workspaceId, projectId);
+    const secret = await this.findSecret(workspaceId, projectId, secretId);
+    await this.access.requireEnvironment(userId, workspaceId, projectId, environmentId);
+    return withTransaction(this.connection, async (session) => {
+      const entry = await this.secretHistory
+        .findOne({
+          workspaceId: objectId(workspaceId),
+          secretId: objectId(secretId),
+          environmentId: objectId(environmentId),
+          valueVersion: version,
+        })
+        .exec();
+      if (!entry) {
+        throw new NotFoundException('Secret version not found');
+      }
+      const encrypted: EnvelopeCipherRecord = {
+        ciphertext: entry.ciphertext,
+        iv: entry.iv,
+        authTag: entry.authTag,
+        wrappedDek: entry.wrappedDek,
+        dekIv: entry.dekIv,
+        dekAuthTag: entry.dekAuthTag,
+        keyId: entry.keyId,
+        cipherVersion: entry.cipherVersion,
+      };
+      const valueVersion = await this.writeEncryptedValue(
+        workspaceId,
+        secretId,
+        environmentId,
+        encrypted,
+        userId,
+        session
+      );
+      await this.recordValueAudit(
+        workspaceId,
+        projectId,
+        secretId,
+        environmentId,
+        valueVersion,
+        'secrets.rollback',
+        userId,
+        session
+      );
+      return { id: String(secret._id), name: secret.name, version: valueVersion };
+    });
   }
 
   private async requireAccess(userId: string, workspaceId: string, projectId: string): Promise<void> {
@@ -402,33 +570,110 @@ export class SecretsService {
     environmentId: string,
     secretId: string,
     value: string,
+    changedBy: string,
     session?: ClientSession
-  ): Promise<void> {
+  ): Promise<number> {
     const encrypted = await this.encryptValue(workspaceId, projectId, environmentId, secretId, value);
-    const existing = await this.secretValues
-      .findOne({
-        workspaceId: objectId(workspaceId),
-        secretId: objectId(secretId),
-        environmentId: objectId(environmentId),
-      })
+    return this.writeEncryptedValue(workspaceId, secretId, environmentId, encrypted, changedBy, session);
+  }
+
+  private async writeEncryptedValue(
+    workspaceId: string,
+    secretId: string,
+    environmentId: string,
+    encrypted: EnvelopeCipherRecord,
+    changedBy: string,
+    session?: ClientSession
+  ): Promise<number> {
+    const filter = {
+      workspaceId: objectId(workspaceId),
+      secretId: objectId(secretId),
+      environmentId: objectId(environmentId),
+    };
+    const updated = await this.secretValues
+      .findOneAndUpdate(filter, { $inc: { valueVersion: 1 }, $set: cipherFields(encrypted) }, { new: true, session })
       .exec();
-    if (existing) {
-      await this.secretValues.updateOne(
-        { _id: (existing as any)._id },
-        { $set: { ...encrypted, valueVersion: existing.valueVersion + 1 } },
+    if (updated) {
+      await this.writeHistory(workspaceId, secretId, environmentId, encrypted, updated.valueVersion, changedBy, session);
+      return updated.valueVersion;
+    }
+    try {
+      await this.secretValues.create(
+        {
+          ...filter,
+          ...cipherFields(encrypted),
+          valueVersion: 1,
+        },
         { session }
       );
-      return;
+      await this.writeHistory(workspaceId, secretId, environmentId, encrypted, 1, changedBy, session);
+      return 1;
+    } catch (error) {
+      if (!isDuplicateKeyError(error)) {
+        throw error;
+      }
+      const retried = await this.secretValues
+        .findOneAndUpdate(filter, { $inc: { valueVersion: 1 }, $set: cipherFields(encrypted) }, { new: true, session })
+        .exec();
+      if (!retried) {
+        throw error;
+      }
+      await this.writeHistory(
+        workspaceId,
+        secretId,
+        environmentId,
+        encrypted,
+        retried.valueVersion,
+        changedBy,
+        session
+      );
+      return retried.valueVersion;
     }
-    await this.secretValues.create(
-      {
-        workspaceId: objectId(workspaceId),
-        secretId: objectId(secretId),
-        environmentId: objectId(environmentId),
-        ...encrypted,
-        valueVersion: 1,
-      },
+  }
+
+  private async writeHistory(
+    workspaceId: string,
+    secretId: string,
+    environmentId: string,
+    encrypted: EnvelopeCipherRecord,
+    valueVersion: number,
+    changedBy: string,
+    session?: ClientSession
+  ): Promise<void> {
+    await this.secretHistory.create(
+      [
+        {
+          workspaceId: objectId(workspaceId),
+          secretId: objectId(secretId),
+          environmentId: objectId(environmentId),
+          ...cipherFields(encrypted),
+          valueVersion,
+          changedBy,
+        },
+      ],
       { session }
+    );
+  }
+
+  private async recordValueAudit(
+    workspaceId: string,
+    projectId: string,
+    secretId: string,
+    environmentId: string,
+    valueVersion: number,
+    action: string,
+    userId: string,
+    session?: ClientSession
+  ): Promise<void> {
+    await this.audits.record(
+      {
+        workspaceId,
+        projectId,
+        action,
+        metadata: { secretId, environmentId, valueVersion },
+        actor: currentAuditContext() ?? { actorType: 'USER', actorId: userId },
+      },
+      session
     );
   }
 

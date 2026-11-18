@@ -27,13 +27,13 @@ The previous repository is archived and is **not** being reused. This document i
 | Layer | Choice | Notes |
 |---|---|---|
 | Monorepo | pnpm workspaces | SDK and CLI publish independently of apps |
-| API | NestJS 11 + TypeScript | Modular monolith, global guards/interceptors, Swagger |
+| API | Express 4 + TypeScript | Modular monolith, explicit route manifest, middleware guards, OpenAPI later |
 | Web | Next.js 15 App Router + Tailwind + shadcn/ui + TanStack Query | Last phase, reviewed with you |
 | Database | **MongoDB Atlas 8**, replicaset | Atlas gives transactions, PITR, encryption at rest, IP allowlist |
-| ODM | Mongoose 8 via `@nestjs/mongoose` | Strict schemas, validators, hooks; native driver for transactions |
+| ODM | Mongoose 8 directly | Strict schemas, validators, hooks; native driver for transactions |
 | Cache | Redis via ioredis | Rate limits, revocation list, session cache |
 | Auth | API-owned: argon2id, JWT access + refresh cookies, Google OAuth2, reset tokens | Single identity authority |
-| RBAC | Permission matrix + Nest `@RequirePermission` guard | Workspace and project roles independent |
+| RBAC | Permission matrix + Express middleware from route manifest | Workspace and project roles independent |
 | Crypto | AES-256-GCM envelope, KMS provider interface, key IDs, rotation | `EnvKeyProvider` for dev, AWS/GCP KMS for prod |
 | SDK/CLI | `aegis` TypeScript package, tsup ESM+CJS, Commander | `npm i aegis`, `npx aegis run -- npm start` |
 | Contracts | Zod in `packages/shared` | One validation source for API, web, SDK |

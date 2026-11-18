@@ -1,12 +1,3 @@
-import {
-  BadRequestException,
-  ConflictException,
-  ForbiddenException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
 import type {
   EnvironmentCreateInput,
   EnvironmentDuplicateInput,
@@ -19,21 +10,15 @@ import type {
   ProjectUpdateInput,
 } from '@aegis/shared';
 import { Types, type Connection, type Model } from 'mongoose';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  NotFoundException,
+} from '../common/http-error';
 import { EnvelopeCipherService } from '../crypto/envelope-cipher.service';
 import { valueAad } from '../crypto/value-cipher.service';
 import { assertSafeInput } from '../database/safe-input';
-import {
-  AUDIT_LOG_MODEL,
-  ENVIRONMENT_MODEL,
-  PROJECT_MEMBER_MODEL,
-  PROJECT_MODEL,
-  SECRET_HISTORY_MODEL,
-  SECRET_MODEL,
-  SECRET_VALUE_MODEL,
-  SERVICE_TOKEN_MODEL,
-  USER_MODEL,
-  WEBHOOK_MODEL,
-} from '../database/schemas';
 import { withTransaction } from '../database/transaction';
 import { ProjectAccessService } from './project-access.service';
 import type {
@@ -64,22 +49,21 @@ function mask(): string {
   return '******';
 }
 
-@Injectable()
 export class ProjectsService {
   constructor(
-    @InjectModel(USER_MODEL) private readonly users: Model<{ email: string }>,
-    @InjectModel(PROJECT_MODEL) private readonly projects: Model<ProjectRecord>,
-    @InjectModel(PROJECT_MEMBER_MODEL) private readonly projectMembers: Model<ProjectMemberRecord>,
-    @InjectModel(ENVIRONMENT_MODEL) private readonly environments: Model<EnvironmentRecord>,
-    @InjectModel(SECRET_MODEL) private readonly secrets: Model<SecretRecord>,
-    @InjectModel(SECRET_VALUE_MODEL) private readonly secretValues: Model<SecretValueRecord>,
-    @InjectModel(SECRET_HISTORY_MODEL) private readonly secretHistory: Model<any>,
-    @InjectModel(SERVICE_TOKEN_MODEL) private readonly serviceTokens: Model<any>,
-    @InjectModel(AUDIT_LOG_MODEL) private readonly auditLogs: Model<any>,
-    @InjectModel(WEBHOOK_MODEL) private readonly webhooks: Model<any>,
-    @InjectConnection() private readonly connection: Connection,
-    @Inject(EnvelopeCipherService) private readonly cipher: EnvelopeCipherService,
-    @Inject(ProjectAccessService) private readonly access: ProjectAccessService
+    private readonly users: Model<{ email: string }>,
+    private readonly projects: Model<ProjectRecord>,
+    private readonly projectMembers: Model<ProjectMemberRecord>,
+    private readonly environments: Model<EnvironmentRecord>,
+    private readonly secrets: Model<SecretRecord>,
+    private readonly secretValues: Model<SecretValueRecord>,
+    private readonly secretHistory: Model<any>,
+    private readonly serviceTokens: Model<any>,
+    private readonly auditLogs: Model<any>,
+    private readonly webhooks: Model<any>,
+    private readonly connection: Connection,
+    private readonly cipher: EnvelopeCipherService,
+    private readonly access: ProjectAccessService
   ) {}
 
   async create(userId: string, workspaceId: string, input: ProjectCreateInput): Promise<ProjectView> {

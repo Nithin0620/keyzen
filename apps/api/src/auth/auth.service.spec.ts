@@ -1,8 +1,8 @@
-import { UnauthorizedException } from '@nestjs/common';
 import type { ClientSession, Connection, Model } from 'mongoose';
 import { Types } from 'mongoose';
 import argon2 from 'argon2';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { UnauthorizedException } from '../common/http-error';
 import { AuthService } from './auth.service';
 import { MailService } from './mail.service';
 import { TokenService } from './token.service';

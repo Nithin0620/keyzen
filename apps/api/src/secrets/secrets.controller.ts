@@ -1,204 +1,198 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  Param,
-  Patch,
-  Post,
-  Put,
-  Query,
-  Req,
-} from '@nestjs/common';
+import type { RequestHandler } from 'express';
 import {
   envExportQuerySchema,
   envImportSchema,
   keyRotationSchema,
+  projectIdParamSchema,
   secretCreateSchema,
   secretGetQuerySchema,
+  secretHistoryQuerySchema,
   secretListQuerySchema,
   secretParamSchema,
   secretRevealQuerySchema,
+  secretRollbackSchema,
   secretUpdateSchema,
   secretValueUpsertSchema,
-  typedConfirmationSchema,
-  projectIdParamSchema,
   environmentSecretParamSchema,
+  typedConfirmationSchema,
   type EnvExportQuery,
   type EnvImportInput,
   type KeyRotationInput,
   type SecretCreateInput,
   type SecretGetQuery,
+  type SecretHistoryQuery,
   type SecretListQuery,
+  type SecretRollbackInput,
   type SecretUpdateInput,
   type SecretValueUpsertInput,
   type TypedConfirmationInput,
 } from '@aegis/shared';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
-import { RequirePermission } from '../authz/require-permission.decorator';
-import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { KeyRotationService } from './key-rotation.service';
-import { SecretsService } from './secrets.service';
+import { auditedRoute } from '../authz/route-manifest';
+import { validate } from '../common/zod-validation.pipe';
+import type { ManagedRoute } from '../http/router';
+import type { KeyRotationService } from './key-rotation.service';
+import type { SecretsService } from './secrets.service';
 
-@Controller('workspaces/:workspaceId/projects/:projectId/secrets')
-export class SecretsController {
-  constructor(
-    @Inject(SecretsService) private readonly secrets: SecretsService,
-    @Inject(KeyRotationService) private readonly rotation: KeyRotationService
-  ) {}
+const BASE = '/workspaces/:workspaceId/projects/:projectId/secrets';
 
-  @Post()
-  @RequirePermission('secrets.create')
-  create(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(secretCreateSchema)) body: SecretCreateInput
-  ) {
-    return this.secrets.create(req.user.sub, params.workspaceId, params.projectId, body);
-  }
+interface SecretRouteDependencies {
+  secrets: SecretsService;
+  rotation: KeyRotationService;
+}
 
-  @Get()
-  @RequirePermission('secrets.read')
-  list(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Query(new ZodValidationPipe(secretListQuerySchema)) query: SecretListQuery
-  ) {
-    return this.secrets.list(req.user.sub, params.workspaceId, params.projectId, query);
-  }
+export function createSecretRoutes(deps: SecretRouteDependencies): ManagedRoute[] {
+  const user = (req: Parameters<RequestHandler>[0]): string => (req as AuthenticatedRequest).user.sub;
+  const projectParams = [validate(projectIdParamSchema, 'params')];
+  const secretParams = [validate(secretParamSchema, 'params')];
 
-  @Post('import')
-  @RequirePermission('secrets.create')
-  import(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(envImportSchema)) body: EnvImportInput
-  ) {
-    return this.secrets.import(req.user.sub, params.workspaceId, params.projectId, body);
-  }
-
-  @Get('export')
-  @RequirePermission('secrets.export')
-  export(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Query(new ZodValidationPipe(envExportQuerySchema)) query: EnvExportQuery
-  ) {
-    return this.secrets.export(req.user.sub, params.workspaceId, params.projectId, query.environmentId);
-  }
-
-  @Post('keys/rotate')
-  @RequirePermission('secrets.update')
-  rotateKeys(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(keyRotationSchema)) body: KeyRotationInput
-  ) {
-    return this.rotation.rotateProjectKeys(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      body.targetKeyId
+  const create: RequestHandler = async (req, res) => {
+    res.status(201).json(
+      await deps.secrets.create(user(req), req.params.workspaceId, req.params.projectId, req.body as SecretCreateInput)
     );
-  }
+  };
 
-  @Get(':secretId')
-  @RequirePermission('secrets.read')
-  get(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(secretParamSchema)) params: {
-      workspaceId: string;
-      projectId: string;
-      secretId: string;
-    },
-    @Query(new ZodValidationPipe(secretGetQuerySchema)) query: SecretGetQuery
-  ) {
-    return this.secrets.get(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.secretId,
-      query.environmentId
+  const list: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.list(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.query as unknown as SecretListQuery
+      )
     );
-  }
+  };
 
-  @Get(':secretId/reveal')
-  @RequirePermission('secrets.read')
-  reveal(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(secretParamSchema)) params: {
-      workspaceId: string;
-      projectId: string;
-      secretId: string;
-    },
-    @Query(new ZodValidationPipe(secretRevealQuerySchema)) query: { environmentId: string }
-  ) {
-    return this.secrets.reveal(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.secretId,
-      query.environmentId
+  const importEnv: RequestHandler = async (req, res) => {
+    res.status(201).json(
+      await deps.secrets.import(user(req), req.params.workspaceId, req.params.projectId, req.body as EnvImportInput)
     );
-  }
+  };
 
-  @Patch(':secretId')
-  @RequirePermission('secrets.update')
-  update(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(secretParamSchema)) params: {
-      workspaceId: string;
-      projectId: string;
-      secretId: string;
-    },
-    @Body(new ZodValidationPipe(secretUpdateSchema)) body: SecretUpdateInput
-  ) {
-    return this.secrets.update(req.user.sub, params.workspaceId, params.projectId, params.secretId, body);
-  }
-
-  @Put(':secretId/environments/:environmentId/value')
-  @RequirePermission('secrets.update')
-  upsertValue(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentSecretParamSchema)) params: {
-      workspaceId: string;
-      projectId: string;
-      environmentId: string;
-      secretId: string;
-    },
-    @Body(new ZodValidationPipe(secretValueUpsertSchema)) body: SecretValueUpsertInput
-  ) {
-    return this.secrets.upsertValue(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.secretId,
-      params.environmentId,
-      body
+  const exportEnv: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.export(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        (req.query as EnvExportQuery).environmentId
+      )
     );
-  }
+  };
 
-  @Delete(':secretId')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('secrets.delete')
-  remove(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(secretParamSchema)) params: {
-      workspaceId: string;
-      projectId: string;
-      secretId: string;
-    },
-    @Body(new ZodValidationPipe(typedConfirmationSchema)) body: TypedConfirmationInput
-  ) {
-    return this.secrets.remove(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.secretId,
-      body.confirmation
+  const rotateKeys: RequestHandler = async (req, res) => {
+    res.status(201).json(
+      await deps.rotation.rotateProjectKeys(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        (req.body as KeyRotationInput).targetKeyId
+      )
     );
-  }
+  };
+
+  const get: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.get(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        (req.query as SecretGetQuery).environmentId
+      )
+    );
+  };
+
+  const reveal: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.reveal(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        (req.query as { environmentId: string }).environmentId
+      )
+    );
+  };
+
+  const history: RequestHandler = async (req, res) => {
+    const query = req.query as unknown as SecretHistoryQuery;
+    res.json(
+      await deps.secrets.history(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        query.environmentId,
+        query.limit
+      )
+    );
+  };
+
+  const rollback: RequestHandler = async (req, res) => {
+    const body = req.body as SecretRollbackInput;
+    res.json(
+      await deps.secrets.rollback(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        req.params.environmentId,
+        body.version,
+        body.confirmation
+      )
+    );
+  };
+
+  const update: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.update(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        req.body as SecretUpdateInput
+      )
+    );
+  };
+
+  const upsertValue: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.upsertValue(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        req.params.environmentId,
+        req.body as SecretValueUpsertInput
+      )
+    );
+  };
+
+  const remove: RequestHandler = async (req, res) => {
+    res.json(
+      await deps.secrets.remove(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.secretId,
+        (req.body as TypedConfirmationInput).confirmation
+      )
+    );
+  };
+
+  return [
+    auditedRoute({ name: 'secrets.create', method: 'post', path: BASE, permission: 'secrets.create', middlewares: [...projectParams, validate(secretCreateSchema)], handler: create }),
+    auditedRoute({ name: 'secrets.list', method: 'get', path: BASE, permission: 'secrets.read', middlewares: [...projectParams, validate(secretListQuerySchema, 'query')], handler: list }),
+    auditedRoute({ name: 'secrets.import', method: 'post', path: `${BASE}/import`, permission: 'secrets.create', middlewares: [...projectParams, validate(envImportSchema)], handler: importEnv }),
+    auditedRoute({ name: 'secrets.export', method: 'get', path: `${BASE}/export`, permission: 'secrets.export', middlewares: [...projectParams, validate(envExportQuerySchema, 'query')], handler: exportEnv }),
+    auditedRoute({ name: 'secrets.rotateKeys', method: 'post', path: `${BASE}/keys/rotate`, permission: 'secrets.update', middlewares: [...projectParams, validate(keyRotationSchema)], handler: rotateKeys }),
+    auditedRoute({ name: 'secrets.get', method: 'get', path: `${BASE}/:secretId`, permission: 'secrets.read', middlewares: [...secretParams, validate(secretGetQuerySchema, 'query')], handler: get }),
+    auditedRoute({ name: 'secrets.reveal', method: 'get', path: `${BASE}/:secretId/reveal`, permission: 'secrets.read', middlewares: [...secretParams, validate(secretRevealQuerySchema, 'query')], handler: reveal }),
+    auditedRoute({ name: 'secrets.history', method: 'get', path: `${BASE}/:secretId/history`, permission: 'secrets.read', middlewares: [...secretParams, validate(secretHistoryQuerySchema, 'query')], handler: history }),
+    auditedRoute({ name: 'secrets.rollback', method: 'post', path: `${BASE}/:secretId/environments/:environmentId/rollback`, permission: 'secrets.update', middlewares: [validate(environmentSecretParamSchema, 'params'), validate(secretRollbackSchema)], handler: rollback }),
+    auditedRoute({ name: 'secrets.update', method: 'patch', path: `${BASE}/:secretId`, permission: 'secrets.update', middlewares: [...secretParams, validate(secretUpdateSchema)], handler: update }),
+    auditedRoute({ name: 'secrets.upsertValue', method: 'put', path: `${BASE}/:secretId/environments/:environmentId/value`, permission: 'secrets.update', middlewares: [validate(environmentSecretParamSchema, 'params'), validate(secretValueUpsertSchema)], handler: upsertValue }),
+    auditedRoute({ name: 'secrets.remove', method: 'delete', path: `${BASE}/:secretId`, permission: 'secrets.delete', middlewares: [...secretParams, validate(typedConfirmationSchema)], handler: remove }),
+  ];
 }

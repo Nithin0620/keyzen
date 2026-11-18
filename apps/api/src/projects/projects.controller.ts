@@ -1,16 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Inject,
-  Param,
-  Patch,
-  Post,
-  Req,
-} from '@nestjs/common';
+import type { RequestHandler } from 'express';
 import {
   diffParamSchema,
   environmentCreateSchema,
@@ -19,8 +7,8 @@ import {
   environmentUpdateSchema,
   projectCreateSchema,
   projectIdParamSchema,
+  memberIdParamSchema,
   projectMemberCreateSchema,
-  projectMemberParamSchema,
   projectMemberRoleUpdateSchema,
   projectUpdateSchema,
   typedConfirmationSchema,
@@ -34,265 +22,219 @@ import {
   type ProjectUpdateInput,
   type TypedConfirmationInput,
 } from '@aegis/shared';
-import { AUTHENTICATED, RequirePermission } from '../authz/require-permission.decorator';
 import type { AuthenticatedRequest } from '../auth/jwt-auth.guard';
-import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { ProjectsService } from './projects.service';
+import { AUTHENTICATED, auditedRoute } from '../authz/route-manifest';
+import { validate } from '../common/zod-validation.pipe';
+import type { ManagedRoute } from '../http/router';
+import type { ProjectsService } from './projects.service';
 
-@Controller('workspaces/:workspaceId/projects')
-export class ProjectsController {
-  constructor(@Inject(ProjectsService) private readonly projects: ProjectsService) {}
+const BASE = '/workspaces/:workspaceId/projects';
 
-  @Post()
-  @RequirePermission(AUTHENTICATED)
-  create(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(workspaceIdParamSchema)) params: { workspaceId: string },
-    @Body(new ZodValidationPipe(projectCreateSchema)) body: ProjectCreateInput
-  ) {
-    return this.projects.create(req.user.sub, params.workspaceId, body);
-  }
+export function createProjectRoutes(projects: ProjectsService): ManagedRoute[] {
+  const user = (req: Parameters<RequestHandler>[0]): string => (req as AuthenticatedRequest).user.sub;
 
-  @Get()
-  @RequirePermission(AUTHENTICATED)
-  list(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(workspaceIdParamSchema)) params: { workspaceId: string }
-  ) {
-    return this.projects.list(req.user.sub, params.workspaceId);
-  }
+  const create: RequestHandler = async (req, res) => {
+    res.status(201).json(await projects.create(user(req), req.params.workspaceId, req.body as ProjectCreateInput));
+  };
 
-  @Get(':projectId')
-  @RequirePermission(AUTHENTICATED)
-  get(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string }
-  ) {
-    return this.projects.get(req.user.sub, params.workspaceId, params.projectId);
-  }
+  const list: RequestHandler = async (req, res) => {
+    res.json(await projects.list(user(req), req.params.workspaceId));
+  };
 
-  @Patch(':projectId')
-  @RequirePermission('environments.manage')
-  update(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(projectUpdateSchema)) body: ProjectUpdateInput
-  ) {
-    return this.projects.update(req.user.sub, params.workspaceId, params.projectId, body);
-  }
+  const get: RequestHandler = async (req, res) => {
+    res.json(await projects.get(user(req), req.params.workspaceId, req.params.projectId));
+  };
 
-  @Delete(':projectId')
-  @RequirePermission('environments.manage')
-  remove(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(typedConfirmationSchema)) body: TypedConfirmationInput
-  ) {
-    return this.projects.remove(req.user.sub, params.workspaceId, params.projectId, body.confirmation);
-  }
-
-  @Post(':projectId/archive')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('environments.manage')
-  archive(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string }
-  ) {
-    return this.projects.archive(req.user.sub, params.workspaceId, params.projectId);
-  }
-
-  @Post(':projectId/restore')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('environments.manage')
-  restore(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string }
-  ) {
-    return this.projects.restore(req.user.sub, params.workspaceId, params.projectId);
-  }
-
-  @Get(':projectId/members')
-  @RequirePermission(AUTHENTICATED)
-  members(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string }
-  ) {
-    return this.projects.listMembers(req.user.sub, params.workspaceId, params.projectId);
-  }
-
-  @Post(':projectId/members')
-  @RequirePermission('members.invite')
-  addMember(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(projectMemberCreateSchema)) body: ProjectMemberCreateInput
-  ) {
-    return this.projects.addMember(req.user.sub, params.workspaceId, params.projectId, body);
-  }
-
-  @Patch(':projectId/members/:userId')
-  @RequirePermission('members.invite')
-  changeMemberRole(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectMemberParamSchema))
-    params: { workspaceId: string; projectId: string; userId: string },
-    @Body(new ZodValidationPipe(projectMemberRoleUpdateSchema)) body: ProjectMemberRoleUpdateInput
-  ) {
-    return this.projects.changeMemberRole(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.userId,
-      body
+  const update: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.update(user(req), req.params.workspaceId, req.params.projectId, req.body as ProjectUpdateInput)
     );
-  }
+  };
 
-  @Delete(':projectId/members/:userId')
-  @RequirePermission('members.invite')
-  removeMember(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectMemberParamSchema))
-    params: { workspaceId: string; projectId: string; userId: string }
-  ) {
-    return this.projects.removeMember(req.user.sub, params.workspaceId, params.projectId, params.userId);
-  }
-
-  @Get(':projectId/environments')
-  @RequirePermission(AUTHENTICATED)
-  environments(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string }
-  ) {
-    return this.projects.listEnvironments(req.user.sub, params.workspaceId, params.projectId);
-  }
-
-  @Post(':projectId/environments')
-  @RequirePermission('environments.manage')
-  createEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(projectIdParamSchema)) params: { workspaceId: string; projectId: string },
-    @Body(new ZodValidationPipe(environmentCreateSchema)) body: EnvironmentCreateInput
-  ) {
-    return this.projects.createEnvironment(req.user.sub, params.workspaceId, params.projectId, body);
-  }
-
-  @Get(':projectId/environments/:environmentId')
-  @RequirePermission(AUTHENTICATED)
-  environment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string }
-  ) {
-    return this.projects.getEnvironment(req.user.sub, params.workspaceId, params.projectId, params.environmentId);
-  }
-
-  @Patch(':projectId/environments/:environmentId')
-  @RequirePermission('environments.manage')
-  updateEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string },
-    @Body(new ZodValidationPipe(environmentUpdateSchema)) body: EnvironmentUpdateInput
-  ) {
-    return this.projects.updateEnvironment(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.environmentId,
-      body
+  const remove: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.remove(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        (req.body as TypedConfirmationInput).confirmation
+      )
     );
-  }
+  };
 
-  @Delete(':projectId/environments/:environmentId')
-  @RequirePermission('environments.manage')
-  removeEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string },
-    @Body(new ZodValidationPipe(typedConfirmationSchema)) body: TypedConfirmationInput
-  ) {
-    return this.projects.removeEnvironment(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.environmentId,
-      body.confirmation
+  const archive: RequestHandler = async (req, res) => {
+    res.json(await projects.archive(user(req), req.params.workspaceId, req.params.projectId));
+  };
+
+  const restore: RequestHandler = async (req, res) => {
+    res.json(await projects.restore(user(req), req.params.workspaceId, req.params.projectId));
+  };
+
+  const members: RequestHandler = async (req, res) => {
+    res.json(await projects.listMembers(user(req), req.params.workspaceId, req.params.projectId));
+  };
+
+  const addMember: RequestHandler = async (req, res) => {
+    res.status(201).json(
+      await projects.addMember(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.body as ProjectMemberCreateInput
+      )
     );
-  }
+  };
 
-  @Post(':projectId/environments/:environmentId/archive')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('environments.manage')
-  archiveEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string }
-  ) {
-    return this.projects.archiveEnvironment(req.user.sub, params.workspaceId, params.projectId, params.environmentId);
-  }
-
-  @Post(':projectId/environments/:environmentId/restore')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('environments.manage')
-  restoreEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string }
-  ) {
-    return this.projects.restoreEnvironment(req.user.sub, params.workspaceId, params.projectId, params.environmentId);
-  }
-
-  @Post(':projectId/environments/:environmentId/duplicate')
-  @HttpCode(HttpStatus.OK)
-  @RequirePermission('environments.manage')
-  duplicateEnvironment(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string },
-    @Body(new ZodValidationPipe(environmentDuplicateSchema)) body: EnvironmentDuplicateInput
-  ) {
-    return this.projects.duplicateEnvironment(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.environmentId,
-      body
+  const changeMemberRole: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.changeMemberRole(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.userId,
+        req.body as ProjectMemberRoleUpdateInput
+      )
     );
-  }
+  };
 
-  @Get(':projectId/environments/:fromEnvironmentId/diff/:toEnvironmentId')
-  @RequirePermission('secrets.read')
-  diff(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(diffParamSchema))
-    params: {
-      workspaceId: string;
-      projectId: string;
-      fromEnvironmentId: string;
-      toEnvironmentId: string;
-    }
-  ) {
-    return this.projects.diffEnvironments(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.fromEnvironmentId,
-      params.toEnvironmentId
+  const removeMember: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.removeMember(user(req), req.params.workspaceId, req.params.projectId, req.params.userId)
     );
-  }
+  };
 
-  @Get(':projectId/environments/:environmentId/resolve')
-  @RequirePermission('secrets.read')
-  resolve(
-    @Req() req: AuthenticatedRequest,
-    @Param(new ZodValidationPipe(environmentIdParamSchema))
-    params: { workspaceId: string; projectId: string; environmentId: string }
-  ) {
-    return this.projects.resolveEnvironment(
-      req.user.sub,
-      params.workspaceId,
-      params.projectId,
-      params.environmentId
+  const environments: RequestHandler = async (req, res) => {
+    res.json(await projects.listEnvironments(user(req), req.params.workspaceId, req.params.projectId));
+  };
+
+  const createEnvironment: RequestHandler = async (req, res) => {
+    res.status(201).json(
+      await projects.createEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.body as EnvironmentCreateInput
+      )
     );
-  }
+  };
+
+  const environment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.getEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId
+      )
+    );
+  };
+
+  const updateEnvironment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.updateEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId,
+        req.body as EnvironmentUpdateInput
+      )
+    );
+  };
+
+  const removeEnvironment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.removeEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId,
+        (req.body as TypedConfirmationInput).confirmation
+      )
+    );
+  };
+
+  const archiveEnvironment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.archiveEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId
+      )
+    );
+  };
+
+  const restoreEnvironment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.restoreEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId
+      )
+    );
+  };
+
+  const duplicateEnvironment: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.duplicateEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId,
+        req.body as EnvironmentDuplicateInput
+      )
+    );
+  };
+
+  const diff: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.diffEnvironments(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.fromEnvironmentId,
+        req.params.toEnvironmentId
+      )
+    );
+  };
+
+  const resolve: RequestHandler = async (req, res) => {
+    res.json(
+      await projects.resolveEnvironment(
+        user(req),
+        req.params.workspaceId,
+        req.params.projectId,
+        req.params.environmentId
+      )
+    );
+  };
+
+  const projectParams = [validate(projectIdParamSchema, 'params')];
+  const environmentParams = [validate(environmentIdParamSchema, 'params')];
+  const memberRoleParams = [validate(memberIdParamSchema, 'params')];
+
+  return [
+    auditedRoute({ name: 'projects.create', method: 'post', path: BASE, permission: AUTHENTICATED, middlewares: [validate(workspaceIdParamSchema, 'params'), validate(projectCreateSchema)], handler: create }),
+    auditedRoute({ name: 'projects.list', method: 'get', path: BASE, permission: AUTHENTICATED, middlewares: [validate(workspaceIdParamSchema, 'params')], handler: list }),
+    auditedRoute({ name: 'projects.get', method: 'get', path: `${BASE}/:projectId`, permission: AUTHENTICATED, middlewares: projectParams, handler: get }),
+    auditedRoute({ name: 'projects.update', method: 'patch', path: `${BASE}/:projectId`, permission: 'environments.manage', middlewares: [...projectParams, validate(projectUpdateSchema)], handler: update }),
+    auditedRoute({ name: 'projects.remove', method: 'delete', path: `${BASE}/:projectId`, permission: 'environments.manage', middlewares: [...projectParams, validate(typedConfirmationSchema)], handler: remove }),
+    auditedRoute({ name: 'projects.archive', method: 'post', path: `${BASE}/:projectId/archive`, permission: 'environments.manage', middlewares: projectParams, handler: archive }),
+    auditedRoute({ name: 'projects.restore', method: 'post', path: `${BASE}/:projectId/restore`, permission: 'environments.manage', middlewares: projectParams, handler: restore }),
+    auditedRoute({ name: 'projects.members', method: 'get', path: `${BASE}/:projectId/members`, permission: AUTHENTICATED, middlewares: projectParams, handler: members }),
+    auditedRoute({ name: 'projects.addMember', method: 'post', path: `${BASE}/:projectId/members`, permission: 'members.invite', middlewares: [...projectParams, validate(projectMemberCreateSchema)], handler: addMember }),
+    auditedRoute({ name: 'projects.changeMemberRole', method: 'patch', path: `${BASE}/:projectId/members/:userId`, permission: 'members.invite', middlewares: [...memberRoleParams, validate(projectMemberRoleUpdateSchema)], handler: changeMemberRole }),
+    auditedRoute({ name: 'projects.removeMember', method: 'delete', path: `${BASE}/:projectId/members/:userId`, permission: 'members.invite', middlewares: memberRoleParams, handler: removeMember }),
+    auditedRoute({ name: 'projects.environments', method: 'get', path: `${BASE}/:projectId/environments`, permission: AUTHENTICATED, middlewares: projectParams, handler: environments }),
+    auditedRoute({ name: 'projects.createEnvironment', method: 'post', path: `${BASE}/:projectId/environments`, permission: 'environments.manage', middlewares: [...projectParams, validate(environmentCreateSchema)], handler: createEnvironment }),
+    auditedRoute({ name: 'projects.environment', method: 'get', path: `${BASE}/:projectId/environments/:environmentId`, permission: AUTHENTICATED, middlewares: environmentParams, handler: environment }),
+    auditedRoute({ name: 'projects.updateEnvironment', method: 'patch', path: `${BASE}/:projectId/environments/:environmentId`, permission: 'environments.manage', middlewares: [...environmentParams, validate(environmentUpdateSchema)], handler: updateEnvironment }),
+    auditedRoute({ name: 'projects.removeEnvironment', method: 'delete', path: `${BASE}/:projectId/environments/:environmentId`, permission: 'environments.manage', middlewares: [...environmentParams, validate(typedConfirmationSchema)], handler: removeEnvironment }),
+    auditedRoute({ name: 'projects.archiveEnvironment', method: 'post', path: `${BASE}/:projectId/environments/:environmentId/archive`, permission: 'environments.manage', middlewares: environmentParams, handler: archiveEnvironment }),
+    auditedRoute({ name: 'projects.restoreEnvironment', method: 'post', path: `${BASE}/:projectId/environments/:environmentId/restore`, permission: 'environments.manage', middlewares: environmentParams, handler: restoreEnvironment }),
+    auditedRoute({ name: 'projects.duplicateEnvironment', method: 'post', path: `${BASE}/:projectId/environments/:environmentId/duplicate`, permission: 'environments.manage', middlewares: [...environmentParams, validate(environmentDuplicateSchema)], handler: duplicateEnvironment }),
+    auditedRoute({ name: 'projects.diff', method: 'get', path: `${BASE}/:projectId/environments/:fromEnvironmentId/diff/:toEnvironmentId`, permission: 'secrets.read', middlewares: [validate(diffParamSchema, 'params')], handler: diff }),
+    auditedRoute({ name: 'projects.resolve', method: 'get', path: `${BASE}/:projectId/environments/:environmentId/resolve`, permission: 'secrets.read', middlewares: environmentParams, handler: resolve }),
+  ];
 }

@@ -1,7 +1,3 @@
-import 'reflect-metadata';
-import { RequestMethod, type Type } from '@nestjs/common';
-import { METHOD_METADATA } from '@nestjs/common/constants';
-import { Reflector } from '@nestjs/core';
 import {
   projectRolePermissions,
   workspaceRolePermissions,
@@ -11,17 +7,11 @@ import {
 } from '@aegis/shared';
 import { Types } from 'mongoose';
 import { describe, expect, it } from 'vitest';
-import { AuthController } from '../auth/auth.controller';
-import { HealthController } from '../health/health.controller';
-import { ProjectsController } from '../projects/projects.controller';
-import { SecretsController } from '../secrets/secrets.controller';
-import { WorkspacesController } from '../workspaces/workspaces.controller';
+import { buildRoutes } from '../container';
+import { AUTHENTICATED, ROUTES } from './route-manifest';
 import { PolicyService } from './policy.service';
-import {
-  AUTHENTICATED,
-  PERMISSION_METADATA,
-  type PermissionRequirement,
-} from './require-permission.decorator';
+
+buildRoutes({} as any);
 
 class Query<T> {
   constructor(private readonly run: () => Promise<T>) {}
@@ -57,36 +47,15 @@ class FakeModel {
   }
 }
 
-const reflector = new Reflector();
-const controllers: Type[] = [
-  HealthController,
-  AuthController,
-  WorkspacesController,
-  ProjectsController,
-  SecretsController,
-];
 const userId = new Types.ObjectId();
 const workspaceId = new Types.ObjectId();
 const projectId = new Types.ObjectId();
 
 function endpointPermissions(): Permission[] {
   const found: Permission[] = [];
-  for (const controller of controllers) {
-    const prototype = controller.prototype as Record<string, unknown>;
-    for (const name of Object.getOwnPropertyNames(prototype)) {
-      const handler = prototype[name];
-      if (name === 'constructor' || typeof handler !== 'function') {
-        continue;
-      }
-      if (reflector.get<RequestMethod>(METHOD_METADATA, handler) === undefined) {
-        continue;
-      }
-      const requirement =
-        reflector.get<PermissionRequirement>(PERMISSION_METADATA, handler) ??
-        reflector.get<PermissionRequirement>(PERMISSION_METADATA, controller);
-      if (requirement && requirement !== AUTHENTICATED && !found.includes(requirement)) {
-        found.push(requirement);
-      }
+  for (const route of ROUTES) {
+    if (route.permission && route.permission !== AUTHENTICATED && !found.includes(route.permission)) {
+      found.push(route.permission);
     }
   }
   return found;

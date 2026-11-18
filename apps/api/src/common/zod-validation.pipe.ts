@@ -1,14 +1,22 @@
-import { BadRequestException, type ArgumentMetadata, type PipeTransform } from '@nestjs/common';
+import type { RequestHandler } from 'express';
 import type { ZodSchema } from 'zod';
+import { BadRequestException } from './http-error';
 
-export class ZodValidationPipe implements PipeTransform {
-  constructor(private readonly schema: ZodSchema) {}
+export type ValidationSource = 'body' | 'query' | 'params';
 
-  transform(value: unknown, _metadata: ArgumentMetadata): unknown {
-    const result = this.schema.safeParse(value);
+export function validate(schema: ZodSchema, source: ValidationSource = 'body'): RequestHandler {
+  return (req, _res, next) => {
+    const result = schema.safeParse(req[source]);
     if (!result.success) {
-      throw new BadRequestException({ message: 'Invalid input', fields: result.error.flatten().fieldErrors });
+      next(
+        new BadRequestException({
+          message: 'Invalid input',
+          fields: result.error.flatten().fieldErrors,
+        })
+      );
+      return;
     }
-    return result.data;
-  }
+    (req as any)[source] = result.data;
+    next();
+  };
 }

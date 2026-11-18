@@ -52,6 +52,16 @@ export const secretRevealQuerySchema = z.object({
   environmentId: objectIdSchema,
 });
 
+export const secretHistoryQuerySchema = z.object({
+  environmentId: objectIdSchema,
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+});
+
+export const secretRollbackSchema = z.object({
+  version: z.number().int().positive(),
+  confirmation: z.literal('ROLLBACK'),
+});
+
 export const envImportSchema = z.object({
   environmentId: objectIdSchema,
   contents: z.string().min(1).max(256_000),
@@ -71,6 +81,49 @@ export const serviceTokenSchema = z.object({
   expiresInDays: z.number().int().min(1).max(365),
 });
 
+export const serviceTokenRotateSchema = z.object({
+  expiresInDays: z.number().int().min(1).max(365).default(30),
+});
+
+export const serviceTokenIdParamSchema = z.object({
+  workspaceId: objectIdSchema,
+  projectId: objectIdSchema,
+  tokenId: objectIdSchema,
+});
+
+export const secretResolveSchema = z
+  .object({
+    names: z.array(secretName).min(1).max(200).optional(),
+  })
+  .default({});
+
+export interface ServiceTokenView {
+  id: string;
+  name: string;
+  tokenPrefix: string;
+  environmentId: string;
+  status: 'ACTIVE' | 'REVOKED' | 'EXPIRED';
+  expiresAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+export interface ServiceTokenCreatedView extends ServiceTokenView {
+  token: string;
+}
+
+export interface SecretResolveView {
+  entries: Array<{ name: string; value: string }>;
+}
+
+export interface SecretValidateView {
+  valid: true;
+  workspaceId: string;
+  projectId: string;
+  environmentId: string;
+  expiresAt: string;
+}
+
 export type SecretCreateInput = z.infer<typeof secretCreateSchema>;
 export type SecretUpdateInput = z.infer<typeof secretUpdateSchema>;
 export type SecretValueUpsertInput = z.infer<typeof secretValueUpsertSchema>;
@@ -78,5 +131,9 @@ export type SecretListQuery = z.infer<typeof secretListQuerySchema>;
 export type SecretGetQuery = z.infer<typeof secretGetQuerySchema>;
 export type EnvImportInput = z.infer<typeof envImportSchema>;
 export type EnvExportQuery = z.infer<typeof envExportQuerySchema>;
+export type SecretHistoryQuery = z.infer<typeof secretHistoryQuerySchema>;
+export type SecretRollbackInput = z.infer<typeof secretRollbackSchema>;
 export type KeyRotationInput = z.infer<typeof keyRotationSchema>;
 export type ServiceTokenInput = z.infer<typeof serviceTokenSchema>;
+export type ServiceTokenRotateInput = z.infer<typeof serviceTokenRotateSchema>;
+export type SecretResolveInput = z.infer<typeof secretResolveSchema>;

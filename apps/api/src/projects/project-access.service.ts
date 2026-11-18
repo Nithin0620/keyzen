@@ -1,13 +1,5 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Types, type Model } from 'mongoose';
-import {
-  ENVIRONMENT_MODEL,
-  PROJECT_MEMBER_MODEL,
-  PROJECT_MODEL,
-  USER_MODEL,
-  WORKSPACE_MEMBER_MODEL,
-} from '../database/schemas';
+import { ForbiddenException, NotFoundException } from '../common/http-error';
 import type { EnvironmentRecord, ProjectMemberRecord, ProjectRecord } from './types';
 
 interface UserStatus {
@@ -25,14 +17,13 @@ function objectId(value: string): Types.ObjectId {
   return new Types.ObjectId(value);
 }
 
-@Injectable()
 export class ProjectAccessService {
   constructor(
-    @InjectModel(USER_MODEL) private readonly users: Model<UserStatus>,
-    @InjectModel(WORKSPACE_MEMBER_MODEL) private readonly workspaceMembers: Model<WorkspaceMember>,
-    @InjectModel(PROJECT_MODEL) private readonly projects: Model<ProjectRecord>,
-    @InjectModel(PROJECT_MEMBER_MODEL) private readonly projectMembers: Model<ProjectMemberRecord>,
-    @InjectModel(ENVIRONMENT_MODEL) private readonly environments: Model<EnvironmentRecord>
+    private readonly users: Model<UserStatus>,
+    private readonly workspaceMembers: Model<WorkspaceMember>,
+    private readonly projects: Model<ProjectRecord>,
+    private readonly projectMembers: Model<ProjectMemberRecord>,
+    private readonly environments: Model<EnvironmentRecord>
   ) {}
 
   async requireWorkspaceMember(userId: string, workspaceId: string): Promise<void> {
@@ -109,6 +100,30 @@ export class ProjectAccessService {
       })
       .exec();
     if (!environment) {
+      throw new NotFoundException();
+    }
+    return environment;
+  }
+
+  async requireEnvironmentScope(
+    workspaceId: string,
+    projectId: string,
+    environmentId: string
+  ): Promise<EnvironmentRecord> {
+    const project = await this.projects
+      .findOne({ _id: objectId(projectId), workspaceId: objectId(workspaceId) })
+      .exec();
+    if (!project || project.archivedAt) {
+      throw new NotFoundException();
+    }
+    const environment = await this.environments
+      .findOne({
+        _id: objectId(environmentId),
+        projectId: objectId(projectId),
+        workspaceId: objectId(workspaceId),
+      })
+      .exec();
+    if (!environment || environment.archivedAt) {
       throw new NotFoundException();
     }
     return environment;

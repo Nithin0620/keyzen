@@ -1,33 +1,14 @@
+import type { InvitationCreateInput, MemberRole, WorkspaceCreateInput, WorkspaceUpdateInput } from '@aegis/shared';
+import { Types, type Connection, type Model } from 'mongoose';
+import { MailService } from '../auth/mail.service';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
-  Inject,
-  Injectable,
   NotFoundException,
-} from '@nestjs/common';
-import { InjectConnection, InjectModel } from '@nestjs/mongoose';
-import type { InvitationCreateInput, MemberRole, WorkspaceCreateInput, WorkspaceUpdateInput } from '@aegis/shared';
-import { Types, type Connection, type Model } from 'mongoose';
-import { MailService } from '../auth/mail.service';
+} from '../common/http-error';
 import { hashToken, randomToken } from '../common/tokens';
 import { assertSafeInput } from '../database/safe-input';
-import {
-  AUDIT_LOG_MODEL,
-  ENVIRONMENT_MODEL,
-  INVITATION_MODEL,
-  PROJECT_MEMBER_MODEL,
-  PROJECT_MODEL,
-  SECRET_HISTORY_MODEL,
-  SECRET_MODEL,
-  SECRET_VALUE_MODEL,
-  SERVICE_TOKEN_MODEL,
-  SUBSCRIPTION_MODEL,
-  USER_MODEL,
-  WEBHOOK_MODEL,
-  WORKSPACE_MEMBER_MODEL,
-  WORKSPACE_MODEL,
-} from '../database/schemas';
 import { withTransaction } from '../database/transaction';
 import type { InvitationView, MemberView, TenantRecord, WorkspaceMemberRecord, WorkspaceRecord, WorkspaceUserRecord, WorkspaceView } from './types';
 import { WorkspaceAccessService } from './workspace-access.service';
@@ -43,26 +24,25 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-@Injectable()
 export class WorkspacesService {
   constructor(
-    @InjectModel(USER_MODEL) private readonly users: Model<WorkspaceUserRecord>,
-    @InjectModel(WORKSPACE_MODEL) private readonly workspaces: Model<WorkspaceRecord>,
-    @InjectModel(WORKSPACE_MEMBER_MODEL) private readonly members: Model<WorkspaceMemberRecord>,
-    @InjectModel(INVITATION_MODEL) private readonly invitations: Model<any>,
-    @InjectModel(PROJECT_MODEL) private readonly projects: Model<TenantRecord>,
-    @InjectModel(PROJECT_MEMBER_MODEL) private readonly projectMembers: Model<TenantRecord>,
-    @InjectModel(ENVIRONMENT_MODEL) private readonly environments: Model<TenantRecord>,
-    @InjectModel(SECRET_MODEL) private readonly secrets: Model<TenantRecord>,
-    @InjectModel(SECRET_VALUE_MODEL) private readonly secretValues: Model<TenantRecord>,
-    @InjectModel(SECRET_HISTORY_MODEL) private readonly secretHistory: Model<TenantRecord>,
-    @InjectModel(SERVICE_TOKEN_MODEL) private readonly serviceTokens: Model<TenantRecord>,
-    @InjectModel(AUDIT_LOG_MODEL) private readonly auditLogs: Model<TenantRecord>,
-    @InjectModel(WEBHOOK_MODEL) private readonly webhooks: Model<TenantRecord>,
-    @InjectModel(SUBSCRIPTION_MODEL) private readonly subscriptions: Model<TenantRecord>,
-    @InjectConnection() private readonly connection: Connection,
-    @Inject(MailService) private readonly mail: MailService,
-    @Inject(WorkspaceAccessService) private readonly access: WorkspaceAccessService
+    private readonly users: Model<WorkspaceUserRecord>,
+    private readonly workspaces: Model<WorkspaceRecord>,
+    private readonly members: Model<WorkspaceMemberRecord>,
+    private readonly invitations: Model<any>,
+    private readonly projects: Model<TenantRecord>,
+    private readonly projectMembers: Model<TenantRecord>,
+    private readonly environments: Model<TenantRecord>,
+    private readonly secrets: Model<TenantRecord>,
+    private readonly secretValues: Model<TenantRecord>,
+    private readonly secretHistory: Model<TenantRecord>,
+    private readonly serviceTokens: Model<TenantRecord>,
+    private readonly auditLogs: Model<TenantRecord>,
+    private readonly webhooks: Model<TenantRecord>,
+    private readonly subscriptions: Model<TenantRecord>,
+    private readonly connection: Connection,
+    private readonly mail: MailService,
+    private readonly access: WorkspaceAccessService
   ) {}
 
   async create(userId: string, input: WorkspaceCreateInput): Promise<WorkspaceView> {

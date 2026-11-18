@@ -1,4 +1,4 @@
-import { ForbiddenException } from '@nestjs/common';
+import { ForbiddenException } from '../common/http-error';
 import { Types, type Model } from 'mongoose';
 import { describe, expect, it, vi } from 'vitest';
 import { UnsafeInputError } from './safe-input';

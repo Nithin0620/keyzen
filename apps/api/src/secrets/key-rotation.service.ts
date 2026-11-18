@@ -1,18 +1,15 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Types, type Model } from 'mongoose';
+import { BadRequestException } from '../common/http-error';
 import { EnvelopeCipherService } from '../crypto/envelope-cipher.service';
 import { KeyProviderRegistry } from '../crypto/key-provider.registry';
 import { valueAad } from '../crypto/value-cipher.service';
-import { SECRET_MODEL, SECRET_VALUE_MODEL } from '../database/schemas';
 import { ProjectAccessService } from '../projects/project-access.service';
 import type { SecretRecord, SecretValueRecord } from './types';
 
-@Injectable()
 export class KeyRotationService {
   constructor(
-    @InjectModel(SECRET_MODEL) private readonly secrets: Model<SecretRecord>,
-    @InjectModel(SECRET_VALUE_MODEL) private readonly secretValues: Model<SecretValueRecord>,
+    private readonly secrets: Model<SecretRecord>,
+    private readonly secretValues: Model<SecretValueRecord>,
     private readonly access: ProjectAccessService,
     private readonly cipher: EnvelopeCipherService,
     private readonly registry: KeyProviderRegistry

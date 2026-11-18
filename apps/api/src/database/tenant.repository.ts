@@ -1,5 +1,5 @@
-import { ForbiddenException } from '@nestjs/common';
 import { Types, type ClientSession, type FilterQuery, type Model, type UpdateQuery } from 'mongoose';
+import { ForbiddenException } from '../common/http-error';
 import { assertSafeInput } from './safe-input';
 
 export interface TenantScoped {

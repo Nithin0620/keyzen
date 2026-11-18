@@ -1,11 +1,9 @@
-import { Inject, Injectable } from '@nestjs/common';
-import { KEY_PROVIDERS, type KeyProvider } from './key-provider';
+import type { KeyProvider } from './key-provider';
 
-@Injectable()
 export class KeyProviderRegistry {
   private readonly providers: Map<string, KeyProvider>;
 
-  constructor(@Inject(KEY_PROVIDERS) providers: KeyProvider[]) {
+  constructor(providers: KeyProvider[]) {
     this.providers = new Map();
     for (const provider of providers) {
       if (this.providers.has(provider.keyId)) {

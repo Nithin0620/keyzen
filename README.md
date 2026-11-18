@@ -8,7 +8,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the end-to-end build plan, tech decisions a
 
 ## Layout
 
-- `apps/api` — NestJS modular monolith (auth, RBAC, secrets, audit, billing)
+- `apps/api` — Express modular monolith (auth, RBAC, secrets, audit, billing)
 - `apps/web` — Next.js dashboard
 - `packages/shared` — Zod contracts and permission definitions
 - `packages/sdk` — published `aegis` npm package and `npx aegis` CLI

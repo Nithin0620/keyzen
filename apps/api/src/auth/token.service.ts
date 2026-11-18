@@ -1,4 +1,3 @@
-import { Injectable } from '@nestjs/common';
 import jwt from 'jsonwebtoken';
 import { validateEnv } from '../config/env';
 import { randomToken } from '../common/tokens';
@@ -9,7 +8,6 @@ export interface AccessTokenPayload {
   emailVerified: boolean;
 }
 
-@Injectable()
 export class TokenService {
   signAccess(payload: AccessTokenPayload): string {
     const env = validateEnv();

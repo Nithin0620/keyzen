@@ -1,27 +1,23 @@
-import { Inject, Injectable, UnauthorizedException, type CanActivate, type ExecutionContext } from '@nestjs/common';
-import type { Request } from 'express';
+import type { NextFunction, Request, RequestHandler, Response } from 'express';
+import { UnauthorizedException } from '../common/http-error';
 import { accessTokenFromRequest } from './request-token';
-import { TokenService, type AccessTokenPayload } from './token.service';
+import type { TokenService, AccessTokenPayload } from './token.service';
 
 export interface AuthenticatedRequest extends Request {
   user: AccessTokenPayload;
 }
 
-@Injectable()
-export class JwtAuthGuard implements CanActivate {
-  constructor(@Inject(TokenService) private readonly tokens: TokenService) {}
-
-  canActivate(context: ExecutionContext): boolean {
-    const req = context.switchToHttp().getRequest<AuthenticatedRequest>();
-    const token = accessTokenFromRequest(req);
-    if (!token) {
-      throw new UnauthorizedException();
-    }
+export function authenticate(tokens: TokenService): RequestHandler {
+  return (req: Request, _res: Response, next: NextFunction): void => {
     try {
-      req.user = this.tokens.verifyAccess(token);
+      const token = accessTokenFromRequest(req);
+      if (!token) {
+        throw new UnauthorizedException();
+      }
+      (req as AuthenticatedRequest).user = tokens.verifyAccess(token);
+      next();
     } catch {
-      throw new UnauthorizedException();
+      next(new UnauthorizedException());
     }
-    return true;
-  }
+  };
 }

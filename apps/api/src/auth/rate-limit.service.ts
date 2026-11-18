@@ -1,4 +1,4 @@
-import { HttpException, HttpStatus } from '@nestjs/common';
+import { HttpException, HttpStatus } from '../common/http-error';
 
 interface Bucket {
   count: number;

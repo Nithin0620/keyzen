@@ -1,11 +1,11 @@
+import { Types } from 'mongoose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
-} from '@nestjs/common';
-import { Types } from 'mongoose';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+} from '../common/http-error';
 import { EnvelopeCipherService } from '../crypto/envelope-cipher.service';
 import { EnvKeyProvider } from '../crypto/env-key.provider';
 import { KeyProviderRegistry } from '../crypto/key-provider.registry';

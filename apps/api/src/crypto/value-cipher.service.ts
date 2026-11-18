@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
-import { Inject, Injectable, Optional } from '@nestjs/common';
 import { validateEnv } from '../config/env';
 
 export interface ValueCipherRecord {
@@ -23,15 +22,10 @@ export function valueAad(
   return [workspaceId, projectId, environmentId, secretId].join(':');
 }
 
-@Injectable()
 export class ValueCipherService {
   private key?: Buffer;
 
-  constructor(
-    @Optional()
-    @Inject('AEGIS_MASTER_KEY')
-    private readonly masterKey?: string
-  ) {}
+  constructor(private readonly masterKey?: string) {}
 
   private getKey(): Buffer {
     if (!this.key) {

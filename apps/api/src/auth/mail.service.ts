@@ -1,9 +1,7 @@
-import { Injectable } from '@nestjs/common';
 import { validateEnv } from '../config/env';
 
 export type MailKind = 'verify' | 'reset' | 'invite';
 
-@Injectable()
 export class MailService {
   private readonly devOutbox = new Map<string, string>();
 

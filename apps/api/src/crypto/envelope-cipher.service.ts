@@ -1,5 +1,4 @@
 import { createCipheriv, createDecipheriv, randomBytes } from 'node:crypto';
-import { Injectable } from '@nestjs/common';
 import { KeyProviderRegistry } from './key-provider.registry';
 import { ValueCipherService } from './value-cipher.service';
 
@@ -17,7 +16,6 @@ export interface EnvelopeCipherRecord {
   cipherVersion: number;
 }
 
-@Injectable()
 export class EnvelopeCipherService {
   constructor(
     private readonly registry: KeyProviderRegistry,

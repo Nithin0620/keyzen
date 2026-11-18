@@ -1,7 +1,5 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import { Types, type Model } from 'mongoose';
-import { USER_MODEL, WORKSPACE_MEMBER_MODEL } from '../database/schemas';
+import { ForbiddenException, NotFoundException } from '../common/http-error';
 import type { WorkspaceMemberRecord, WorkspaceUserRecord } from './types';
 
 function objectId(value: string): Types.ObjectId {
@@ -11,11 +9,10 @@ function objectId(value: string): Types.ObjectId {
   return new Types.ObjectId(value);
 }
 
-@Injectable()
 export class WorkspaceAccessService {
   constructor(
-    @InjectModel(WORKSPACE_MEMBER_MODEL) private readonly members: Model<WorkspaceMemberRecord>,
-    @InjectModel(USER_MODEL) private readonly users: Model<WorkspaceUserRecord>
+    private readonly members: Model<WorkspaceMemberRecord>,
+    private readonly users: Model<WorkspaceUserRecord>
   ) {}
 
   async requireMember(userId: string, workspaceId: string): Promise<WorkspaceMemberRecord> {

@@ -1,3 +1,4 @@
+export * from './contracts/audit';
 export * from './contracts/auth';
 export * from './contracts/workspaces';
 export * from './contracts/projects';

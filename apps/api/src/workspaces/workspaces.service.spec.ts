@@ -1,12 +1,12 @@
+import { Types } from 'mongoose';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { MailService } from '../auth/mail.service';
 import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
   NotFoundException,
-} from '@nestjs/common';
-import { Types } from 'mongoose';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { MailService } from '../auth/mail.service';
+} from '../common/http-error';
 import { UnsafeInputError } from '../database/safe-input';
 import { WorkspacesService } from './workspaces.service';
 import { WorkspaceAccessService } from './workspace-access.service';

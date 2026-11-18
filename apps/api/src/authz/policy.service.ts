@@ -1,5 +1,3 @@
-import { Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/mongoose';
 import {
   permissions,
   projectRolePermissions,
@@ -9,12 +7,6 @@ import {
   type WorkspaceRole,
 } from '@aegis/shared';
 import { Types, type Model } from 'mongoose';
-import {
-  PROJECT_MEMBER_MODEL,
-  PROJECT_MODEL,
-  USER_MODEL,
-  WORKSPACE_MEMBER_MODEL,
-} from '../database/schemas';
 
 export interface PolicyContext {
   workspaceId?: string;
@@ -66,13 +58,12 @@ function withOverrides(role: ProjectRole, overrides: string[]): Set<Permission> 
   return granted;
 }
 
-@Injectable()
 export class PolicyService {
   constructor(
-    @InjectModel(USER_MODEL) private readonly users: Model<UserRecord>,
-    @InjectModel(WORKSPACE_MEMBER_MODEL) private readonly workspaceMembers: Model<WorkspaceMemberRecord>,
-    @InjectModel(PROJECT_MODEL) private readonly projects: Model<ProjectRecord>,
-    @InjectModel(PROJECT_MEMBER_MODEL) private readonly projectMembers: Model<ProjectMemberRecord>
+    private readonly users: Model<UserRecord>,
+    private readonly workspaceMembers: Model<WorkspaceMemberRecord>,
+    private readonly projects: Model<ProjectRecord>,
+    private readonly projectMembers: Model<ProjectMemberRecord>
   ) {}
 
   async evaluate(userId: string, permission: Permission, context: PolicyContext): Promise<boolean> {

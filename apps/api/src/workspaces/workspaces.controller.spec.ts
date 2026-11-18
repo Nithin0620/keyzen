@@ -1,13 +1,12 @@
-import { ForbiddenException, type INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
+import type { Express } from 'express';
 import request from 'supertest';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createApp } from '../app';
 import { RateLimitService } from '../auth/rate-limit.service';
 import { TokenService } from '../auth/token.service';
-import { ZodValidationPipe } from '../common/zod-validation.pipe';
-import { WorkspacesController } from './workspaces.controller';
-import { WorkspacesService } from './workspaces.service';
+import { ForbiddenException } from '../common/http-error';
+import type { RouteDependencies } from '../container';
+import type { WorkspacesService } from './workspaces.service';
 
 process.env.NODE_ENV = 'test';
 process.env.MONGODB_URI ??= 'mongodb://localhost:27017/aegis-test';
@@ -38,11 +37,11 @@ const invitationView = {
 };
 
 describe('WorkspacesController', () => {
-  let app: INestApplication;
+  let app: Express;
   let service: WorkspacesService;
   let accessToken: string;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     const tokens = new TokenService();
     accessToken = tokens.signAccess({ sub: ACTOR_ID, email: 'owner@example.com', emailVerified: true });
     service = {
@@ -64,26 +63,24 @@ describe('WorkspacesController', () => {
       revokeInvitation: vi.fn(async () => undefined),
     } as unknown as WorkspacesService;
 
-    const moduleRef = await Test.createTestingModule({
-      controllers: [WorkspacesController],
-      providers: [
-        { provide: WorkspacesService, useValue: service },
-        { provide: JwtAuthGuard, useValue: new JwtAuthGuard(tokens) },
-        RateLimitService,
-        TokenService,
-      ],
-    }).compile();
-
-    app = moduleRef.createNestApplication();
-    await app.init();
-  });
-
-  afterEach(async () => {
-    await app.close();
+    const deps: RouteDependencies = {
+      audits: { record: vi.fn(async () => undefined), list: vi.fn(async () => []) } as any,
+      tokens,
+      policy: { evaluate: vi.fn(async () => true) } as any,
+      auth: {} as any,
+      google: {} as any,
+      rateLimit: new RateLimitService(),
+      workspaces: service,
+      projects: {} as any,
+      secrets: {} as any,
+      rotation: {} as any,
+      serviceTokens: {} as any,
+    };
+    app = createApp(deps);
   });
 
   function authed() {
-    const appRequest = request(app.getHttpServer());
+    const appRequest = request(app);
     const withAuth = (test: any) => test.set('Authorization', `Bearer ${accessToken}`);
     return {
       get: (url: string) => withAuth(appRequest.get(url)),
@@ -115,7 +112,6 @@ describe('WorkspacesController', () => {
     expect(service.remove).toHaveBeenCalledWith(ACTOR_ID, WORKSPACE_ID, 'core');
 
     await authed().delete(`/workspaces/${WORKSPACE_ID}`).send({}).expect(400);
-    expect(ZodValidationPipe).toBeDefined();
   });
 
   it('manages members and transfers ownership through guarded routes', async () => {
@@ -153,7 +149,7 @@ describe('WorkspacesController', () => {
   });
 
   it('rejects unauthenticated requests, invalid ids and service-level denials', async () => {
-    await request(app.getHttpServer()).get('/workspaces').expect(401);
+    await request(app).get('/workspaces').expect(401);
     await authed().get('/workspaces/not-an-id').expect(400);
 
     vi.mocked(service.get).mockRejectedValueOnce(new ForbiddenException('Workspace access denied'));
