@@ -118,7 +118,12 @@ function auditMiddleware(definition: ManagedRoute, audits: AuditService): Reques
   };
 }
 
-export function registerRoutes(router: Router, routes: ManagedRoute[], auth: AuthDependencies): void {
+export function registerRoutes(
+  router: Router,
+  routes: ManagedRoute[],
+  auth: AuthDependencies,
+  trace: (name: string, path: string) => RequestHandler = () => (_req, _res, next) => next()
+): void {
   for (const definition of routes) {
     const key = routeKey(definition.method, definition.path);
     if (Boolean(definition.public) !== PUBLIC_ROUTES.has(key)) {
@@ -137,6 +142,7 @@ export function registerRoutes(router: Router, routes: ManagedRoute[], auth: Aut
       ...(definition.middlewares ?? []),
       ...policy,
       ...auditing,
+      trace(definition.name, definition.path),
       asyncHandler(definition.handler)
     );
   }

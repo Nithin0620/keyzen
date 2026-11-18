@@ -1,6 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type Redis from 'ioredis';
 import { MailService } from '../auth/mail.service';
+import { logger } from '../logging/logger';
+import { captureException } from '../observability/errors';
 
 export interface ScheduledJob {
   name: string;
@@ -43,10 +45,11 @@ export class JobScheduler {
     try {
       await job.run();
     } catch (error) {
+      captureException(error, { job: job.name });
       try {
         await this.mail.sendAlert(`Scheduled job ${job.name} failed`, errorMessage(error));
       } catch {
-        console.error(`Failed to send alert for job ${job.name}`);
+        logger.error({ job: job.name }, 'Failed to send job alert');
       }
     } finally {
       await this.releaseLock(lockKey);

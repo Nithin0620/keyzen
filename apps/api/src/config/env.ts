@@ -1,5 +1,10 @@
 import { z } from 'zod';
 
+const booleanString = z
+  .enum(['true', 'false'])
+  .default('false')
+  .transform((value) => value === 'true');
+
 const schema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -7,6 +12,21 @@ const schema = z
     REDIS_URL: z.string().url().default('redis://localhost:6379'),
     API_PORT: z.coerce.number().int().positive().default(3001),
     WEB_ORIGIN: z.string().url().default('http://localhost:3000'),
+    WEB_ORIGINS: z.string().optional(),
+    REQUEST_BODY_LIMIT: z.string().min(2).default('1mb'),
+    MAX_URL_LENGTH: z.coerce.number().int().positive().default(4096),
+    TRUST_PROXY: z.coerce.number().int().nonnegative().default(0),
+    ENFORCE_TLS: booleanString,
+    GLOBAL_RATE_LIMIT: z.coerce.number().int().positive().default(300),
+    GLOBAL_RATE_WINDOW_MS: z.coerce.number().int().positive().default(60_000),
+    ABUSE_ALERT_THRESHOLD: z.coerce.number().int().positive().default(10),
+    ABUSE_ALERT_WINDOW_MS: z.coerce.number().int().positive().default(300_000),
+    LOG_LEVEL: z.enum(['debug', 'info', 'warn', 'error']).default('info'),
+    OTEL_ENABLED: booleanString,
+    OTEL_SERVICE_NAME: z.string().min(1).default('aegis-api'),
+    OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+    SENTRY_DSN: z.string().url().optional(),
+    SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
     AUTH_SECRET: z.string().min(32),
     AUTH_ACCESS_TTL: z.coerce.number().int().positive().default(900),
     AUTH_REFRESH_TTL: z.coerce.number().int().positive().default(2592000),
@@ -85,15 +105,84 @@ const schema = z
         message: 'STRIPE_PRICE_PRO and STRIPE_PRICE_ENTERPRISE are required in production',
       });
     }
+    if (!env.WEB_ORIGIN.startsWith('http://') && !env.WEB_ORIGIN.startsWith('https://')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'WEB_ORIGIN must be an HTTP origin',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.WEB_ORIGIN.startsWith('http://')) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'WEB_ORIGIN must use HTTPS in production',
+      });
+    }
+    if (env.WEB_ORIGINS) {
+      for (const origin of env.WEB_ORIGINS.split(',').map((value) => value.trim()).filter(Boolean)) {
+        try {
+          const parsed = new URL(origin);
+          if (
+            !['http:', 'https:'].includes(parsed.protocol) ||
+            parsed.pathname !== '/' ||
+            parsed.search ||
+            parsed.hash ||
+            parsed.username ||
+            parsed.password ||
+            parsed.origin !== origin.replace(/\/+$/, '')
+          ) {
+            throw new Error('invalid origin');
+          }
+          if (env.NODE_ENV === 'production' && parsed.protocol !== 'https:') {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              message: 'WEB_ORIGINS must use HTTPS in production',
+            });
+          }
+        } catch {
+          ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: 'WEB_ORIGINS must contain comma-separated origins',
+          });
+        }
+      }
+    }
+    if (env.NODE_ENV === 'production' && !env.ENFORCE_TLS) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'ENFORCE_TLS is required in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && env.TRUST_PROXY < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'TRUST_PROXY must be at least 1 in production',
+      });
+    }
+    if (env.NODE_ENV === 'production' && !env.SENTRY_DSN) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'SENTRY_DSN is required in production',
+      });
+    }
+    if (env.OTEL_ENABLED && !env.OTEL_EXPORTER_OTLP_ENDPOINT) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'OTEL_EXPORTER_OTLP_ENDPOINT is required when OTEL_ENABLED is true',
+      });
+    }
   });
 
 export type Env = z.infer<typeof schema>;
 
 let cached: Env | undefined;
 
+export function parseEnv(input: NodeJS.ProcessEnv = process.env): Env {
+  return schema.parse(input);
+}
+
 export function validateEnv(input: NodeJS.ProcessEnv = process.env): Env {
   if (!cached) {
-    cached = schema.parse(input);
+    cached = parseEnv(input);
   }
   return cached;
 }

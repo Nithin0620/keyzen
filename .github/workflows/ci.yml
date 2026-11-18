@@ -21,5 +21,8 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      - run: pnpm test:coverage
+      - run: pnpm test:e2e:list
       - run: pnpm build
       - run: pnpm test:sdk:pack
+      - run: pnpm load:test

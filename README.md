@@ -23,4 +23,4 @@ pnpm install
 pnpm dev
 ```
 
-Status: **Phase 2 — identity and authentication**. Nothing here is production-ready yet.
+Status: backend, API, SDK, CLI and hardening are complete through Phase 12. The dashboard is Phase 13 and has not started. Not production-ready until deployment review and live provider smoke tests pass.

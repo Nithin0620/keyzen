@@ -1,6 +1,7 @@
 import type Redis from 'ioredis';
 import mongoose, { type Connection, type Model } from 'mongoose';
 import RedisClient from 'ioredis';
+import { docsRoutes } from './docs/docs.controller';
 import { createAuditRoutes } from './audit/audit.controller';
 import { AuditService } from './audit/audit.service';
 import { createBillingRoutes } from './billing/billing.controller';
@@ -11,6 +12,7 @@ import { AuthService } from './auth/auth.service';
 import { createAuthRoutes } from './auth/auth.controller';
 import { GoogleService } from './auth/google.service';
 import { MailService } from './auth/mail.service';
+import { AbuseMonitor } from './auth/abuse-monitor.service';
 import { RateLimitService } from './auth/rate-limit.service';
 import { TokenService } from './auth/token.service';
 import { PolicyService } from './authz/policy.service';
@@ -46,7 +48,7 @@ import {
   WORKSPACE_MEMBER_MODEL,
   WORKSPACE_MODEL,
 } from './database/schemas';
-import { healthRoutes } from './health/health.controller';
+import { createHealthRoutes } from './health/health.controller';
 import type { ManagedRoute } from './http/router';
 import { BackgroundJobs } from './jobs/background-jobs';
 import { JobScheduler, type ScheduledJob } from './jobs/job-scheduler';
@@ -81,11 +83,14 @@ export interface RouteDependencies {
   serviceTokens: ServiceTokenService;
   billing?: BillingService;
   webhooks?: WebhookService;
+  connection?: Connection;
+  redis?: Redis;
 }
 
 export function buildRoutes(deps: RouteDependencies): ManagedRoute[] {
   return [
-    ...healthRoutes,
+    ...createHealthRoutes({ connection: deps.connection, redis: deps.redis }),
+    ...docsRoutes,
     ...createAuditRoutes(deps),
     ...createAuthRoutes(deps),
     ...createWorkspaceRoutes(deps),
@@ -123,7 +128,8 @@ export async function createContainer(): Promise<Container> {
   const tokens = new TokenService();
   const mail = new MailService();
   const google = new GoogleService();
-  const rateLimit = new RateLimitService();
+  const abuseMonitor = new AbuseMonitor(mail, env.ABUSE_ALERT_THRESHOLD, env.ABUSE_ALERT_WINDOW_MS);
+  const rateLimit = new RateLimitService(abuseMonitor);
 
   const auth = new AuthService(
     models[USER_MODEL],
@@ -276,6 +282,8 @@ export async function createContainer(): Promise<Container> {
     serviceTokens,
     billing,
     webhooks,
+    connection,
+    redis,
   };
 
   return {

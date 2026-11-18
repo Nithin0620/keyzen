@@ -1,5 +1,10 @@
 export const PUBLIC_ROUTES = new Set([
   'GET /health',
+  'GET /health/live',
+  'GET /health/ready',
+  'GET /docs',
+  'GET /docs/*',
+  'GET /openapi.json',
   'POST /auth/signup',
   'POST /auth/verify',
   'POST /auth/login',

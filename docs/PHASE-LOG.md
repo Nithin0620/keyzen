@@ -601,3 +601,42 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 12 hardening and observability only after explicit continuation.
 - Add Stripe/Resend smoke tests, DNS rebinding mitigation and production runbooks in later work.
+
+## Phase 12 — Hardening and observability
+
+- Status: done; date: 2026-11-18.
+- Files: 30 created, 24 modified, 54 total; 13 new test files with 44 new tests.
+
+### What changed
+
+- Added global Zod input guard for unsafe keys, excessive depth, oversized objects, non-finite numbers and unsupported types.
+- Added Helmet with HSTS, CORS allowlist, TLS enforcement, request IDs, URL limit, strict body limits, sanitized 500 envelopes and 429 `Retry-After` responses.
+- Added global per-IP rate limiting with hashed-actor abuse monitoring and threshold-based operator alerts.
+- Added cached public OpenAPI JSON and Swagger UI routes plus explicit liveness and readiness probes.
+- Added OpenTelemetry route spans, Sentry error/transaction capture with deep redaction, and expanded Pino request/redaction logging.
+- Added production env validation, coverage thresholds, CI verification steps and a repeatable load-test harness.
+- Added Playwright configuration with a skipped Phase 13 smoke spec and deploy, rotation, incident and load-test runbooks.
+
+### Decisions
+
+- Health and docs routes are explicitly whitelisted public; every other route remains deny-by-default.
+- Raw secrets, tokens, authorization headers, query values and credentials are redacted from logs, errors, traces and Sentry payloads.
+- Production fails fast when security, CORS, encryption or observability settings required for safe operation are missing.
+- Load testing targets `/health/live` with stub services only; no tenant data or real credentials are used.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm test:coverage && pnpm test:e2e:list && pnpm build && pnpm test:sdk:pack && pnpm load:test`
+- Verification result: pass
+- Full workspace passes with 214 tests: API 195 and SDK 19; coverage global 80.93%, auth 79.81%, authz 83.78%, crypto 88.55%.
+- Playwright lists one skipped Phase 13 smoke test; production build and packed SDK verification pass; load test completed 187,317 requests with 0 failures, 6,243.9 requests/sec and 16.7 ms p95.
+
+### Risks / issues found
+
+- Live OTLP and Sentry delivery are not exercised in CI; only initialization, redaction and flush wiring are verified locally.
+- Rate limiting and abuse tracking use bounded in-process state; multi-instance deployments still need a shared limiter and browser E2E coverage remains deferred until Phase 13.
+
+### Carryover to next phase
+
+- Implement Phase 13 dashboard UI only after explicit continuation.
+- Connect the skipped Playwright smoke test to the real dashboard and keep the Phase 12 security invariants intact.

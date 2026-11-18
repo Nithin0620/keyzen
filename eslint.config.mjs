@@ -15,6 +15,18 @@ export default tseslint.config(
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
+    files: ['scripts/**/*.mjs'],
+    languageOptions: {
+      globals: {
+        process: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        URL: 'readonly',
+        performance: 'readonly',
+      },
+    },
+  },
+  {
     languageOptions: {
       parserOptions: {
         ecmaFeatures: { jsx: true },

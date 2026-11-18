@@ -1,9 +1,15 @@
 import { createApp } from './app';
+import { redactText } from './common/redact';
 import { validateEnv } from './config/env';
 import { createContainer } from './container';
+import { logger } from './logging/logger';
+import { captureException, flushObservability, startErrorMonitoring } from './observability/errors';
+import { startTracing } from './observability/tracing';
 
 async function bootstrap(): Promise<void> {
   const env = validateEnv();
+  startErrorMonitoring(env);
+  startTracing(env);
   const container = await createContainer();
   const app = createApp({
     audits: container.audits,
@@ -19,10 +25,12 @@ async function bootstrap(): Promise<void> {
     serviceTokens: container.serviceTokens,
     billing: container.billing,
     webhooks: container.webhooks,
+    connection: container.connection,
+    redis: container.redis,
   });
 
   const server = app.listen(env.API_PORT, () => {
-    console.log(`Aegis API listening on port ${env.API_PORT}`);
+    logger.info({ port: env.API_PORT }, 'Aegis API listening');
   });
   container.jobs.start(container.jobDefinitions);
 
@@ -33,10 +41,18 @@ async function bootstrap(): Promise<void> {
       if (container.redis) {
         void container.redis.quit();
       }
+      void flushObservability();
     });
   };
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  captureException(error, { phase: 'bootstrap' });
+  logger.error(
+    { error: redactText(error instanceof Error ? error.message : 'Unknown error') },
+    'bootstrap failed'
+  );
+  process.exitCode = 1;
+});

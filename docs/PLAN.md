@@ -185,8 +185,9 @@ Use ObjectId for `_id`; expose string IDs externally. Every tenant-owned collect
 - Global validation pipe (Zod), sanitized errors, security headers, CORS allowlist, TLS enforcement, request size limits.
 - Rate limiting per IP and per token; abuse monitoring.
 - Vitest unit + Supertest API integration + Playwright prepared; coverage thresholds on auth/RBAC/crypto.
-- OpenAPI/Swagger docs generated from DTOs; Pino redaction, OTel traces, Sentry; health/readiness probes; runbooks for deploy, key rotation and incident response.
-- **Done when:** full CI green; cross-tenant denial suite passes; secret-redaction test passes; load test meets target; deploy runbook reviewed.
+- OpenAPI/Swagger docs generated from DTOs; Pino redaction, OTel traces, Sentry; health/readiness probes; runbooks for deploy, key rotation, incident response and load testing.
+- Load test target: 50 concurrent connections for 30 seconds against `GET /health/live`; pass requires at least 200 requests/sec and p95 <= 250 ms (see `docs/runbooks/load-test.md`).
+- **Done when:** full CI green; cross-tenant denial suite passes; secret-redaction test passes; load test target met; deploy runbook reviewed.
 
 ### Phase 13 — Dashboard UI (last, built with you)
 **Goal:** a polished, real-data dashboard reviewed step by step with you.
