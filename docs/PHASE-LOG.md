@@ -481,3 +481,43 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 9 SDK/CLI against the runtime API; do not start it in this change.
 - Keep service-token plaintext out of SDK logs, shell history and persisted config; run staging checks for Redis revocation, production rate limiting and KMS before public exposure.
+
+## Phase 9 — SDK (`aegis` npm package)
+
+- Status: done; date: 2026-11-18.
+- Files: 4 created, 5 modified, 9 total; 1 new test file with 9 new tests.
+
+### What changed
+
+- Implemented `Aegis` with `init()`, `get()`, `getAll()`, `inject()`, `sync()`, `run()`, `validate()` and `disconnect()`.
+- Added config for `projectId`, `environment`, optional `apiKey`, `AEGIS_SERVICE_TOKEN`, endpoint override and cache/timeout/retry tuning.
+- Added module-level and method-level server-only guard that fails browser imports with a clear typed error.
+- Added in-memory TTL cache with no disk persistence, snapshot copies for `getAll()`, explicit `disconnect()` and refresh-on-demand through `sync()`.
+- Added `init()` that validates the token and loads secrets, and `inject()` that copies fetched secrets into `process.env` in memory only.
+- Added `run()` that spawns a child with injected secrets, strips `AEGIS_*` variables and blocks `NODE_OPTIONS`, `LD_PRELOAD`, `DYLD_INSERT_LIBRARIES` and `PATH` from stored secrets.
+- Added timeouts, bounded retries with jitter, no retry on rejected tokens and typed errors with messages that never include secret values.
+- Added strict endpoint validation requiring http/https URLs without embedded credentials.
+- Added strict response validation for resolve and validate payloads, including uppercase secret-name enforcement.
+- Added `@types/node` to the SDK so declaration builds include Node runtime types.
+- Added a packed-tarball verification script that builds, packs, installs into a temporary sample app, imports ESM and CJS entrypoints and asserts no `.env` file is created.
+- Added the packed-tarball check to CI after the full build.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:sdk:pack`
+- Verification result: pass
+- Typecheck, lint and full workspace build pass.
+- SDK tests pass with 9 tests covering injection, TTL cache, token absence, auth rejection, bounded retries, unsafe names, child env stripping and browser import failure.
+- API tests remain green at 112 tests across 28 test files; full workspace total is 121 tests.
+- Packed tarball installs in a temporary sample app with working ESM/CJS imports and no `.env` file on disk.
+
+### Risks / issues found
+
+- SDK retries are local to the process; server-side rate limiting remains the authoritative protection for token abuse.
+- `run()` forwards SIGINT/SIGTERM but does not yet implement Windows signal semantics beyond normal child exit handling.
+- Validation checks project scope; environment identity remains token-scoped because the SDK config may use an environment label.
+
+### Carryover to next phase
+
+- Implement Phase 10 CLI only after explicit continuation; CLI commands remain Phase 10 placeholders.
+- Keep tokens out of shell history and process arguments; prefer OS keychain storage with a safe non-production fallback before implementing `login`/`logout`.

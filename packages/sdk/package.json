@@ -16,6 +16,9 @@
     "aegis": "./dist/cli.js"
   },
   "files": ["dist"],
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "tsup --watch",
     "build": "tsup",
@@ -26,6 +29,7 @@
     "commander": "^13.0.0"
   },
   "devDependencies": {
+    "@types/node": "^22.10.0",
     "tsup": "^8.3.0",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
