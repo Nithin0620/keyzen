@@ -15,7 +15,9 @@
   "bin": {
     "aegis": "./dist/cli.js"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "engines": {
     "node": ">=20"
   },
@@ -26,6 +28,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@napi-rs/keyring": "^2.1.2",
     "commander": "^13.0.0"
   },
   "devDependencies": {

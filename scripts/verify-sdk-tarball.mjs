@@ -44,6 +44,11 @@ try {
     { cwd: appDir, encoding: 'utf8' }
   );
 
+  execFileSync(join(appDir, 'node_modules', '.bin', 'aegis'), ['--version'], {
+    cwd: appDir,
+    encoding: 'utf8',
+  });
+
   if (existsSync(join(appDir, '.env'))) {
     throw new Error('packed SDK created a .env file');
   }

@@ -13,6 +13,7 @@ export default defineConfig([
     format: ['esm'],
     dts: false,
     sourcemap: true,
+    external: ['@napi-rs/keyring'],
     banner: { js: '#!/usr/bin/env node' },
   },
 ]);

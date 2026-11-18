@@ -521,3 +521,42 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 10 CLI only after explicit continuation; CLI commands remain Phase 10 placeholders.
 - Keep tokens out of shell history and process arguments; prefer OS keychain storage with a safe non-production fallback before implementing `login`/`logout`.
+
+## Phase 10 — CLI
+
+- Status: done; date: 2026-11-18.
+- Files: 6 created, 6 modified, 12 total; 2 new test files with 10 new tests.
+
+### What changed
+
+- Replaced CLI placeholders with `init`, `pull`, `run`, `validate`, `login` and `logout` commands.
+- Added non-secret CLI config stored at 0600 under XDG/App data paths; config ignores token fields on load and save.
+- Added keychain credential storage through `@napi-rs/keyring` with an environment-only fallback that refuses plaintext persistence.
+- Added token resolution from `AEGIS_SERVICE_TOKEN` first, then OS keychain; no `--token` option or token-bearing command arguments.
+- Added `login` from environment or stdin and `logout` deletion without printing token values.
+- Added `init` validation and config save, `validate` structured status, and `pull` JSON/env output with optional secret names.
+- Added `run -- <cmd>` through the SDK runtime path so secrets are injected in memory and `AEGIS_*` variables are stripped from child processes.
+- Added CLI timeout configuration and structured JSON errors for CI consumption.
+- Added injectable CLI dependencies and unit coverage for config permissions, token handling, command routing, env/keychain tokens and exit-code propagation.
+- Added `@napi-rs/keyring` as an external dependency in the CLI bundle.
+- Extended packed-tarball verification to run the installed `aegis --version` binary.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:sdk:pack`
+- Verification result: pass
+- Typecheck, lint and full workspace build pass.
+- SDK tests pass with 19 tests; API tests remain green at 112 tests; full workspace total is 131 tests.
+- CLI tests cover init, pull, run, validate, login, logout, keychain fallback token use and structured error output without token leakage.
+- Packed tarball installs in a temporary sample app, imports ESM/CJS, runs the installed CLI binary and creates no `.env` file.
+
+### Risks / issues found
+
+- Interactive `login` reads from stdin without hidden input; tokens are absent from shell history and process args but may be echoed by the terminal.
+- Keychain integration is startup-tested in the packed tarball but OS-backed read/write behavior is mocked in unit tests.
+- Environment fallback is non-persistent by design and reports a clear error for `login`/`logout` when no OS keychain is available.
+
+### Carryover to next phase
+
+- Implement Phase 11 integrations and background work only after explicit continuation.
+- Keep Stripe/webhook secrets redacted; ensure forged signatures, SSRF URLs and direct billing-state writes are rejected by tests.
