@@ -786,3 +786,29 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
 - Verification result: pass (workspace 232 tests passing; Next.js builds and prerenders all 12 routes cleanly).
+
+
+## Phase 13, Subphase 6 — Team, RBAC, and invitations
+
+- Status: done; date: 2026-11-19.
+- Files: 1 created, 1 total.
+
+### What changed
+
+- Added Workspace Members and Access Management (`/workspaces/:workspaceId/members`).
+- Built team member list showing user details, avatar, join dates, and active roles (`OWNER`, `ADMIN`, `MEMBER`, `VIEWER`).
+- Implemented real-time role change with dropdown controls bound to `PATCH /workspaces/:workspaceId/members/:userId`.
+- Implemented member removal with `ConfirmationDialog` destructive confirmation.
+- Implemented primary ownership transfer requiring typed `TRANSFER` confirmation via `POST /workspaces/:workspaceId/transfer-owner`.
+- Built invitation creator supporting role selection, rate-limit protection, and immediate dispatch via `POST /workspaces/:workspaceId/invitations`.
+- Built invitation history table displaying pending/accepted/revoked statuses and revocation actions.
+
+### Decisions
+
+- Used explicit role-only RBAC controls (`OWNER`, `ADMIN`, `MEMBER`, `VIEWER`) consistent with the backend permissions matrix and route guards.
+- Protected primary owner accounts from deletion or accidental removal, allowing only deliberate transfer via typed confirmation.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass (all workspace packages build, typecheck, lint, and test cleanly; Next.js prerenders all 12 routes).
