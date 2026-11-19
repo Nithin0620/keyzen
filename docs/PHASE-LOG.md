@@ -736,3 +736,53 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
 - Verification result: pass (all workspace packages build, typecheck, lint, and test cleanly).
+
+
+## Phase 13, Subphase 4 — Secrets vault
+
+- Status: done; date: 2026-11-19.
+- Files: 4 created, 1 modified, 5 total.
+
+### What changed
+
+- Added Secrets Vault Table (`/workspaces/:workspaceId/secrets`) with masked-by-default values, live decryption on demand, automatic 30-second re-mask timer, search by secret name, and project/environment scope switchers.
+- Added Secret Creator (`/workspaces/:workspaceId/secrets/new`) with strictly validated UPPER_CASE_SNAKE naming rules and immediate envelope sealing.
+- Added Secret Value Updater (`/workspaces/:workspaceId/secrets/:secretId/edit`) with version incrementation.
+- Added `.env` Importer (`/workspaces/:workspaceId/secrets/import`) supporting file uploads and direct multi-line text parsing into the selected environment.
+- Added client-side `.env` export with instant sanitized file download.
+- Extended `EmptyState` component with custom icon rendering.
+
+### Decisions
+
+- All secret values are strictly masked with bullet glyphs (`••••••••••••••••`) by default.
+- Revealed secrets automatically re-mask after 30 seconds to prevent shoulder surfing or memory leaks.
+- Zero secret values appear in URLs, error messages, or local browser storage.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass (all workspace packages build, typecheck, lint, and test cleanly).
+
+---
+
+## Phase 13, Subphase 5 — History and rollback
+
+- Status: done; date: 2026-11-19.
+- Files: 1 created, 1 total.
+
+### What changed
+
+- Added Version History Timeline (`/workspaces/:workspaceId/secrets/:secretId/history`) using `GET /secrets/:secretId/history`.
+- Displays version numbers, actor ids, and formatted timestamps for each historical modification.
+- Added typed rollback action requiring the exact confirmation string `ROLLBACK`.
+- Rollbacks create a new version on the server without destroying past timeline entries.
+
+### Decisions
+
+- Rollback dialog enforces typed `ROLLBACK` confirmation to prevent accidental restoration.
+- Secret historical values remain masked by default.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass (workspace 232 tests passing; Next.js builds and prerenders all 12 routes cleanly).
