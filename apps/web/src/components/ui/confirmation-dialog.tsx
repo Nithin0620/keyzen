@@ -16,12 +16,16 @@ import { Input } from './input';
 import { Label } from './label';
 
 export interface ConfirmationDialogProps {
-  trigger: ReactNode;
+  trigger?: ReactNode;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   title: string;
   description: string;
   confirmLabel?: string;
+  confirmText?: string;
   cancelLabel?: string;
   confirmationText?: string;
+  requiredConfirmation?: string;
   confirmationLabel?: string;
   destructive?: boolean;
   onConfirm: (confirmation: string | undefined) => void | Promise<void>;
@@ -30,23 +34,32 @@ export interface ConfirmationDialogProps {
 
 export function ConfirmationDialog({
   trigger,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
   title,
   description,
-  confirmLabel = 'Confirm',
+  confirmLabel,
+  confirmText,
   cancelLabel = 'Cancel',
   confirmationText,
+  requiredConfirmation,
   confirmationLabel,
   destructive = false,
   onConfirm,
   onError,
 }: ConfirmationDialogProps): ReactNode {
+  const effectiveConfirmLabel = confirmLabel ?? confirmText ?? 'Confirm';
+  const effectiveRequiredText = confirmationText ?? requiredConfirmation;
   const confirmationId = useId();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = setControlledOpen ?? setInternalOpen;
+
   const [pending, setPending] = useState(false);
   const [confirmationValue, setConfirmationValue] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  const confirmationMatches = !confirmationText || confirmationValue === confirmationText;
+  const confirmationMatches = !effectiveRequiredText || confirmationValue === effectiveRequiredText;
 
   function handleOpenChange(nextOpen: boolean): void {
     setOpen(nextOpen);
@@ -61,7 +74,7 @@ export function ConfirmationDialog({
     setPending(true);
     setError(null);
     try {
-      await onConfirm(confirmationText ? confirmationValue : undefined);
+      await onConfirm(effectiveRequiredText ? confirmationValue : undefined);
       handleOpenChange(false);
     } catch (cause) {
       setError('Unable to complete this action.');
@@ -73,15 +86,15 @@ export function ConfirmationDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        {confirmationText ? (
+        {effectiveRequiredText ? (
           <div className="grid gap-2">
-            <Label htmlFor={confirmationId}>{confirmationLabel ?? `Type ${confirmationText} to confirm`}</Label>
+            <Label htmlFor={confirmationId}>{confirmationLabel ?? `Type ${effectiveRequiredText} to confirm`}</Label>
             <Input
               id={confirmationId}
               value={confirmationValue}
@@ -106,7 +119,7 @@ export function ConfirmationDialog({
             onClick={handleConfirm}
             disabled={pending || !confirmationMatches}
           >
-            {confirmLabel}
+            {effectiveConfirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

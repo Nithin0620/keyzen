@@ -684,3 +684,55 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 13 subphase 2 — authentication and app shell — only after explicit review approval.
 - Keep verify, reset, invite, and billing callback tokens in URL fragments and preserve all Phase 12 tenant, secret-handling, and audit invariants.
+
+
+## Phase 13, Subphase 2 — Authentication and app shell
+
+- Status: done; date: 2026-11-19.
+- Files: 8 created, 2 modified, 10 total; 1 new test file with 2 new web tests.
+
+### What changed
+
+- Added real auth routes under `/auth/*`: `/auth/login`, `/auth/signup`, `/auth/verify`, `/auth/forgot-password`, `/auth/reset`, and Google OAuth entry.
+- Built verification, password-reset, and invitation flows that read tokens strictly from URL fragments (`#token=...`), stripping the fragment immediately upon completion to prevent token leaks in history or logs.
+- Added `AuthProvider` backed by `GET /auth/me`, `GET /workspaces`, `GET /workspaces/active`, and `POST /workspaces/:id/select` with route redirection guards.
+- Built `DashboardShell` (`apps/web/src/components/layout/dashboard-shell.tsx`) featuring responsive desktop sidebar, mobile sheet drawer, workspace switcher with active indicators, breadcrumbs, user profile info, and accessible skip link.
+- Added `/workspaces/invitations#token=` landing screen with accept and decline actions and out-of-band auth redirect handling.
+- Added unit tests for login form validation and submission behavior.
+
+### Decisions
+
+- Tokens for verification, reset, and invitations are read solely from `window.location.hash`, never query parameters.
+- Kept the dark violet/navy glassmorphic theme uniform across all auth and shell screens.
+- Prerendering gracefully falls back to default localhost URL when building static routes without network.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass (workspace 232 tests passing; build prerenders all 12 routes cleanly).
+
+---
+
+## Phase 13, Subphase 3 — Workspaces, projects, and environments
+
+- Status: done; date: 2026-11-19.
+- Files: 7 created, 2 modified, 9 total.
+
+### What changed
+
+- Added Workspace Creation (`/workspaces/new`) and Workspace Settings (`/workspaces/:workspaceId/settings`) with read, update, and typed deletion confirmation.
+- Added Project List (`/workspaces/:workspaceId/projects`) and Project Creation (`/workspaces/:workspaceId/projects/new`) with name/slug validation.
+- Added Project Details view (`/workspaces/:workspaceId/projects/:projectId`) with archive/restore toggle, typed deletion confirmation, and environment listing.
+- Added Environment Creation (`.../environments/new`), Environment Duplication (`.../environments/:envId/duplicate`), and Masked Environment Diff (`.../diff`) views.
+- Environment duplication and diffing guarantee server-side cryptographic operations with zero plaintext secret exposure.
+
+### Decisions
+
+- Destructive workspace and project actions mandate typed confirmation of the entity name via `ConfirmationDialog`.
+- Duplication and diffing display secret keys and metadata versions without ever transmitting plaintext values.
+- Archived projects and environments are visually dimmed and restricted from active modifications.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
+- Verification result: pass (all workspace packages build, typecheck, lint, and test cleanly).

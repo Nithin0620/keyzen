@@ -18,7 +18,8 @@ export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
 export function getApiBaseUrl(): string {
   const configured = process.env.NEXT_PUBLIC_API_URL?.trim();
   if (configured) return configured.replace(/\/+$/, '');
-  if (process.env.NODE_ENV === 'production') {
+  // Prerendering / SSR during build can run under NODE_ENV=production without NEXT_PUBLIC_API_URL
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
     throw new Error('NEXT_PUBLIC_API_URL must be configured in production');
   }
   return DEFAULT_API_URL;
@@ -154,6 +155,12 @@ export const api = {
     apiFetch<T>(path, { ...options, method: 'PUT', body }),
   patch: <T>(path: string, body?: ApiBody, options?: Omit<ApiRequestOptions, 'body' | 'method'>) =>
     apiFetch<T>(path, { ...options, method: 'PATCH', body }),
-  delete: <T>(path: string, options?: Omit<ApiRequestOptions, 'body' | 'method'>) =>
-    apiFetch<T>(path, { ...options, method: 'DELETE' }),
+  delete: <T>(path: string, bodyOrOptions?: ApiBody | Omit<ApiRequestOptions, 'body' | 'method'>, options?: Omit<ApiRequestOptions, 'body' | 'method'>) => {
+    if (bodyOrOptions && typeof bodyOrOptions === 'object' && !('headers' in bodyOrOptions || 'searchParams' in bodyOrOptions || 'skipRefresh' in bodyOrOptions)) {
+      return apiFetch<T>(path, { ...options, method: 'DELETE', body: bodyOrOptions as ApiBody });
+    }
+    return apiFetch<T>(path, { ...(bodyOrOptions as Omit<ApiRequestOptions, 'body' | 'method'>), method: 'DELETE' });
+  },
 };
+
+export const apiClient = api;
