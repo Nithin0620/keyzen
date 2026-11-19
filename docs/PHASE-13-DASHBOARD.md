@@ -242,12 +242,12 @@ Final user sign-off closes Phase 13. Any new API changes discovered during polis
 | Subphase | Name | Status | Review |
 |---|---|---|---|
 | 1 | Design system and frontend foundation | done | approved |
-| 2 | Authentication and app shell | not started | pending |
-| 3 | Workspaces, projects, and environments | not started | pending |
-| 4 | Secrets vault | not started | pending |
-| 5 | History and rollback | not started | pending |
-| 6 | Team, RBAC, and invitations | not started | pending |
+| 2 | Authentication and app shell | done | approved |
+| 3 | Workspaces, projects, and environments | done | approved |
+| 4 | Secrets vault | done | approved |
+| 5 | History and rollback | done | approved |
+| 6 | Team, RBAC, and invitations | done | approved |
 | 7 | Service credentials, webhooks, billing, and settings | not started | pending |
 | 8 | Audit, polish, accessibility, and sign-off | not started | pending |
 
-Subphase 1 was implemented on 2026-11-19 and approved; subphase 2 is unblocked.
+Subphases 1 through 6 are implemented, verified, and approved; subphase 7 is unblocked.
