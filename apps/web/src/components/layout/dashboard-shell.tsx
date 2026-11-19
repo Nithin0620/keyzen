@@ -34,6 +34,7 @@ import {
   Building,
   Plus,
   Radio,
+  CreditCard,
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ui/theme-toggle';
 
@@ -76,6 +77,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
           matchPrefix: true,
         },
         {
+          name: 'Billing',
+          href: `/workspaces/${activeWorkspace.id}/billing`,
+          icon: CreditCard,
+          matchPrefix: true,
+        },
+        {
           name: 'Settings',
           href: `/workspaces/${activeWorkspace.id}/settings`,
           icon: Settings,
@@ -101,10 +108,10 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
       </a>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden w-64 flex-col border-r border-line/30 bg-[#0a0624]/80 backdrop-blur-xl md:flex">
+      <aside className="hidden w-64 flex-col border-r border-line/30 bg-navy-deep/80 backdrop-blur-xl md:flex">
         {/* Brand */}
         <div className="flex h-16 items-center gap-3 px-6 border-b border-line/20">
-          <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+          <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <ShieldCheck className="size-4 text-white" />
           </div>
           <div>
@@ -119,7 +126,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
             <DropdownMenuTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full justify-between border-line/40 bg-black/20 text-ink hover:bg-black/40 hover:text-white text-xs h-9 px-3"
+                className="w-full justify-between border-line/40 bg-navy-deep/40 text-ink hover:bg-navy-deep/70 hover:text-white text-xs h-9 px-3"
               >
                 <div className="flex items-center gap-2 truncate">
                   <Building className="size-3.5 text-peri-2 shrink-0" />
@@ -128,7 +135,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
                 <ChevronDown className="size-3.5 text-ink-3 shrink-0" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="w-56 border-line/40 bg-[#120a38] text-ink">
+            <DropdownMenuContent align="start" className="w-56 border-line/40 bg-popover text-ink">
               <DropdownMenuLabel className="font-mono text-[10px] uppercase tracking-wider text-ink-3">
                 Workspaces
               </DropdownMenuLabel>
@@ -140,7 +147,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
                 >
                   <span className="truncate">{ws.name}</span>
                   {ws.id === activeWorkspace?.id && (
-                    <span className="size-1.5 rounded-full bg-peri-2 shadow-[0_0_6px_#8d94ff]" />
+                    <span className="size-1.5 rounded-full bg-peri-2 shadow-[0_0_6px_theme(colors.peri.2)]" />
                   )}
                 </DropdownMenuItem>
               ))}
@@ -169,7 +176,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
                 className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all duration-200 ${
                   active
                     ? 'bg-peri/20 text-white font-medium border-l-2 border-peri-2'
-                    : 'text-ink-2 hover:bg-white/[0.05] hover:text-ink'
+                    : 'text-ink-2 hover:bg-line/[0.05] hover:text-ink'
                 }`}
               >
                 <Icon className={`size-4 ${active ? 'text-peri-2' : 'text-ink-3'}`} />
@@ -207,7 +214,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
       {/* Main Content Area */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top Navbar */}
-        <header className="flex h-16 items-center justify-between border-b border-line/20 bg-[#0a0624]/60 px-6 backdrop-blur-md">
+        <header className="flex h-16 items-center justify-between border-b border-line/20 bg-navy-deep/60 px-6 backdrop-blur-md">
           <div className="flex items-center gap-4">
             {/* Mobile Sheet Trigger */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -216,9 +223,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
                   <Menu className="size-5" />
                 </Button>
               </SheetTrigger>
-              <SheetContent side="left" className="w-64 border-line/30 bg-[#0d0830] p-0 text-ink">
+              <SheetContent side="left" className="w-64 border-line/30 bg-navy p-0 text-ink">
                 <SheetHeader className="h-16 flex-row items-center gap-3 border-b border-line/20 px-6">
-                  <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+                  <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
                     <ShieldCheck className="size-4 text-white" />
                   </div>
                   <SheetTitle className="font-sans text-base font-semibold text-ink">Aegis</SheetTitle>
@@ -232,7 +239,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
                       className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm ${
                         isActive(item)
                           ? 'bg-peri/20 text-white font-medium'
-                          : 'text-ink-2 hover:bg-white/[0.05]'
+                          : 'text-ink-2 hover:bg-line/[0.05]'
                       }`}
                     >
                       <item.icon className="size-4 text-peri-2" />

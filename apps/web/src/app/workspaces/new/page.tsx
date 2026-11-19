@@ -58,11 +58,11 @@ export default function NewWorkspacePage(): React.ReactNode {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-6 bg-navy">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#160c40] via-navy to-[#0b0626]" />
+      <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
 
       <Card className="w-full max-w-lg border-line/40 shadow-2xl">
         <CardHeader className="space-y-2">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <Building className="size-5 text-white" />
           </div>
           <CardTitle className="text-2xl font-light tracking-tight text-ink">

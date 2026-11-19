@@ -48,11 +48,11 @@ export default function LoginPage(): React.ReactNode {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-6">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#160c40] via-navy to-[#0b0626]" />
+      <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
 
       <Card className="w-full max-w-md border-line/40 shadow-2xl">
         <CardHeader className="space-y-2 text-center">
-          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+          <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <ShieldCheck className="size-6 text-white" />
           </div>
           <CardTitle className="text-2xl font-light tracking-tight text-ink">
@@ -128,7 +128,7 @@ export default function LoginPage(): React.ReactNode {
             <div className="absolute inset-0 flex items-center">
               <div className="w-full border-t border-line/30" />
             </div>
-            <span className="relative bg-[#130d36] px-2 font-mono text-ink-3">OR</span>
+            <span className="relative bg-violet-deep px-2 font-mono text-ink-3">OR</span>
           </div>
 
           <a

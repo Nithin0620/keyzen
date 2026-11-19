@@ -67,7 +67,7 @@ export default function WorkspaceInvitationsPage(): React.ReactNode {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center p-6">
-      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#160c40] via-navy to-[#0b0626]" />
+      <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
 
       <Card className="w-full max-w-md border-line/40 shadow-2xl text-center">
         <CardHeader className="space-y-2">
@@ -76,7 +76,7 @@ export default function WorkspaceInvitationsPage(): React.ReactNode {
               <Users className="size-6" />
             </div>
           ) : status === 'accepted' ? (
-            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-success/20 text-[#5ee6a8] border border-success/30">
+            <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-success/20 text-success border border-success/30">
               <CheckCircle2 className="size-6" />
             </div>
           ) : (

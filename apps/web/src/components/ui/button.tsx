@@ -17,16 +17,16 @@ export const buttonVariants = cva(
         outline:
           'border border-line bg-background/50 hover:bg-accent hover:text-accent-foreground backdrop-blur-md',
         ghost:
-          'border border-white/20 bg-white/[0.03] text-foreground hover:bg-white/[0.1] hover:-translate-y-0.5',
+          'border border-line bg-line/[0.03] text-foreground hover:bg-line/[0.1] hover:-translate-y-0.5',
         destructive:
           'bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:-translate-y-0.5',
         link: 'text-peri-2 underline-offset-4 hover:underline',
         white:
-          'bg-white text-[#14163f] hover:bg-white/90 hover:-translate-y-0.5 shadow-sm font-semibold',
+          'bg-white text-navy hover:bg-white/90 hover:-translate-y-0.5 shadow-sm font-semibold',
         dark:
-          'bg-[#141a4d] border border-line text-white hover:bg-[#1c2363] hover:-translate-y-0.5',
+          'bg-violet-deep border border-line text-ink hover:bg-secondary hover:-translate-y-0.5',
         glass:
-          'bg-[rgba(120,124,200,0.42)] border border-[rgba(210,210,255,0.2)] backdrop-blur-[10px] text-white hover:-translate-y-0.5',
+          'glass-surface text-ink hover:-translate-y-0.5',
       },
       size: {
         default: 'h-10 px-4 py-2',

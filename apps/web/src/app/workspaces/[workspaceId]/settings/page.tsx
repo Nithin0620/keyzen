@@ -104,7 +104,7 @@ export default function WorkspaceSettingsPage({
       {/* Settings Form */}
       <Card className="border-line/40 shadow-2xl">
         <CardHeader className="space-y-2">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <Settings className="size-5 text-white" />
           </div>
           <CardTitle className="text-2xl font-light tracking-tight text-ink">

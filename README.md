@@ -23,4 +23,4 @@ pnpm install
 pnpm dev
 ```
 
-Status: backend, API, SDK, CLI and hardening are complete through Phase 12. The dashboard is Phase 13 and has not started. Not production-ready until deployment review and live provider smoke tests pass.
+Status: backend, API, SDK, CLI and hardening are complete through Phase 12. The dashboard (Phase 13) is in progress — sub-phases 1–8 done, sub-phase 9 (polish) remaining. Not production-ready until deployment review, live provider smoke tests, and accessibility audit pass.

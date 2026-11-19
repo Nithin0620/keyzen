@@ -29,6 +29,7 @@ const instrumentSerif = Instrument_Serif({
 export const metadata: Metadata = {
   title: 'Aegis — Secret Ops & Key Orchestration Studio',
   description: 'The independent studio for curating, securing, and orchestrating programmatic secrets.',
+  icons: { icon: 'data:,' },
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>): ReactNode {

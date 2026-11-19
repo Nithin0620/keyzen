@@ -183,7 +183,7 @@ export default function WorkspaceMembersPage({
 
       {/* Invite Member Card Modal Dialog */}
       {inviteModalOpen && (
-        <Card className="border-peri/40 shadow-2xl p-6 bg-[#130d36]">
+        <Card className="border-peri/40 shadow-2xl p-6 bg-violet-deep">
           <div className="flex items-center justify-between mb-4 border-b border-line/20 pb-3">
             <div className="flex items-center gap-2">
               <Mail className="size-4 text-peri-2" />
@@ -228,7 +228,7 @@ export default function WorkspaceMembersPage({
                   <SelectTrigger className="bg-black/20 border-line text-ink">
                     <SelectValue placeholder="Role" />
                   </SelectTrigger>
-                  <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+                  <SelectContent className="border-line/40 bg-popover text-ink">
                     <SelectItem value="ADMIN">ADMIN</SelectItem>
                     <SelectItem value="MEMBER">MEMBER</SelectItem>
                     <SelectItem value="VIEWER">VIEWER</SelectItem>
@@ -308,7 +308,7 @@ export default function WorkspaceMembersPage({
                             <SelectTrigger className="h-8 w-28 bg-black/20 border-line text-ink">
                               <SelectValue />
                             </SelectTrigger>
-                            <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+                            <SelectContent className="border-line/40 bg-popover text-ink">
                               <SelectItem value="ADMIN">ADMIN</SelectItem>
                               <SelectItem value="MEMBER">MEMBER</SelectItem>
                               <SelectItem value="VIEWER">VIEWER</SelectItem>

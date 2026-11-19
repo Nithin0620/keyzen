@@ -91,7 +91,7 @@ export default function EnvironmentDiffPage({
             <SelectTrigger className="bg-black/20 border-line text-ink">
               <SelectValue placeholder="Select base environment" />
             </SelectTrigger>
-            <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+            <SelectContent className="border-line/40 bg-popover text-ink">
               {environments?.map((e) => (
                 <SelectItem key={e.id} value={e.id} disabled={e.id === toEnvId}>
                   {e.name} (/{e.slug})
@@ -109,7 +109,7 @@ export default function EnvironmentDiffPage({
             <SelectTrigger className="bg-black/20 border-line text-ink">
               <SelectValue placeholder="Select target environment" />
             </SelectTrigger>
-            <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+            <SelectContent className="border-line/40 bg-popover text-ink">
               {environments?.map((e) => (
                 <SelectItem key={e.id} value={e.id} disabled={e.id === fromEnvId}>
                   {e.name} (/{e.slug})
@@ -168,7 +168,7 @@ export default function EnvironmentDiffPage({
 
                       {item.status === 'identical' && (
                         <Badge variant="outline" className="border-line/30 text-ink-3">
-                          <Check className="mr-1 size-3 text-[#5ee6a8]" /> In Sync
+                          <Check className="mr-1 size-3 text-success" /> In Sync
                         </Badge>
                       )}
                       {item.status === 'modified' && (

@@ -812,3 +812,77 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build`
 - Verification result: pass (all workspace packages build, typecheck, lint, and test cleanly; Next.js prerenders all 12 routes).
+
+
+## Phase 13, Subphase 7 — Service tokens
+
+- Status: done; date: 2026-11-19.
+- Files created: 1, Files modified: 1, Total files changed: 2.
+
+### Main thing done
+
+Built the per-project service token management page: create with one-time plaintext reveal, prefix-only table display, rotate with new expiry, immediate revoke, and usage statistics. No plaintext token value is ever stored, displayed more than once, or put in a URL.
+
+### Files touched
+
+- `apps/web/src/app/workspaces/[workspaceId]/projects/[projectId]/credentials/page.tsx` — created. Full CRUD against `GET/POST /workspaces/:wId/projects/:pId/credentials` and `POST …/:tokenId/rotate`, `POST …/:tokenId/revoke`. One-time reveal banner with eye-toggle and clipboard copy, stats row (total/active/revoked/environments), active-tokens table with prefix badges, inline rotate dialog with expiry selector, revoke ConfirmationDialog, and an inactive-tokens archive section. No token value persisted in state after the reveal banner is dismissed.
+- `apps/web/src/app/workspaces/[workspaceId]/projects/[projectId]/page.tsx` — modified. Added Service Tokens (Fingerprint icon) and Webhooks quick-access links to the project header action group.
+
+### Key decisions
+
+- One-time reveal uses a local React state string that is cleared on dismiss or page navigation; it never enters any persistent store or URL.
+- Rotate immediately invalidates the previous hash server-side; the new token is surfaced in the same reveal banner pattern.
+- Active and inactive tokens are visually separated to reduce confusion without hiding audit history.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm build` (run after subphase 8; see combined result below).
+- Verification result: see subphase 8.
+
+### Risks / issues found
+
+- No new tests added for this page; real browser behavior is covered by the existing Playwright smoke spec skeleton.
+- `credentials.manage` permission is required server-side; UI does not pre-check the user role before mounting.
+
+### Carryover to next phase
+
+- Subphase 9 (polish): add keyboard navigation, focus traps in the rotate inline dialog, ARIA labels on icon-only buttons.
+
+
+## Phase 13, Subphase 8 — Audit, webhooks, and billing
+
+- Status: done; date: 2026-11-19.
+- Files created: 3, Files modified: 1, Total files changed: 4.
+
+### Main thing done
+
+Completed the final three feature areas of the dashboard: a filterable, expandable audit trail viewer; per-project HMAC-webhook management with signing-secret one-time reveal; and a billing page with live plan cards and Stripe Checkout redirect.
+
+### Files touched
+
+- `apps/web/src/app/workspaces/[workspaceId]/audit/page.tsx` — created. Fetches `GET /workspaces/:wId/audit` with project and limit query params. Project-dropdown filter, limit selector (25/50/100/200), refresh button, relative timestamps, actor-type icons (USER/SERVICE_TOKEN/SYSTEM), colour-coded action badges, inline expandable metadata rows with IP hash display. No secret values appear in any display path.
+- `apps/web/src/app/workspaces/[workspaceId]/projects/[projectId]/webhooks/page.tsx` — created. Fetches `GET/POST /workspaces/:wId/projects/:pId/webhooks` and `POST …/:webhookId/rotate-secret`, `DELETE …/:webhookId`. Create form with HTTPS URL and event-checkbox grid; signing-secret one-time reveal banner matches the token pattern; inline deliveries panel per webhook (status, HTTP code, attempt count); rotate and deactivate actions; active/inactive visual distinction.
+- `apps/web/src/app/workspaces/[workspaceId]/billing/page.tsx` — created. Fetches `GET /workspaces/:wId/billing`; posts to `POST …/billing/checkout` for Stripe Checkout redirect. Displays current plan badge and subscription status (ACTIVE/PAST_DUE/CANCELED), period-end date, customer ID suffix. Three plan cards (Free/Pro/Enterprise) with feature lists, upgrade CTA, and a past-due warning alert. Billing state never written directly — UI only reads DB state and redirects to Stripe.
+- `apps/web/src/components/layout/dashboard-shell.tsx` — modified. Added `Billing` nav item with `CreditCard` icon between Team and Settings. `Audit Trail` link was already present from subphase 2.
+
+### Key decisions
+
+- Webhook signing secret follows the same one-time-reveal pattern as service tokens: local state only, cleared on dismiss.
+- Audit metadata is rendered as pretty-printed JSON in an inline expanded row; it never surfaces secret values because the backend redacts them before writing audit records.
+- Billing page redirects to Stripe for all payment interactions; `window.location.href` assignment is the only mechanism used (no `<form action>` or server-side redirect that could expose session cookies to Stripe).
+- Plan definitions are static UI constants; actual entitlements are authoritative on the backend.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm build` (run in `apps/web`)
+- Verification result: pass — typecheck and Next.js production build complete with zero errors; all new routes prerender cleanly.
+
+### Risks / issues found
+
+- No unit tests added; pages are covered by the existing Playwright smoke spec skeleton pending subphase 9.
+- `audit.read`, `webhooks.manage`, and `billing.manage` permissions are enforced server-side only; the UI mounts regardless of role and shows an `ErrorState` on 403.
+- Webhook SSRF protection (private-IP blocking) is entirely server-side; the UI does not validate target URLs beyond basic `type="url"` input validation.
+
+### Carryover to next phase
+
+- Subphase 9 (polish): keyboard navigation, focus traps, ARIA labels, mobile layout review, empty-state copy review, Playwright smoke spec expansion.

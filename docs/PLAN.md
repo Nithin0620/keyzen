@@ -193,15 +193,15 @@ Use ObjectId for `_id`; expose string IDs externally. Every tenant-owned collect
 **Goal:** a polished, real-data dashboard reviewed step by step with you.
 
 Sub-stages, each ending in your review before the next:
-1. **Design system** — tokens, typography, dark/light theme, shadcn/ui primitives, accessible form and modal patterns.
-2. **App shell** — auth pages, workspace switcher, navigation, responsive layout, loading/error/empty states.
-3. **Projects & environments** — hierarchy navigation, create/archive/delete flows, duplicate and compare views.
-4. **Vault** — table with masked values, reveal-on-demand with audit, search/filter, descriptions, `.env` import, permission-gated export.
-5. **History & rollback** — version timeline, diff view, confirmed rollback.
-6. **Team & RBAC** — workspace members, project members, role/custom permission editor, invitation flow.
-7. **Service tokens** — create/rotate/revoke, prefix display, one-time token reveal, usage stats.
-8. **Audit & settings** — filterable audit viewer, workspace settings, webhooks, billing via Stripe.
-9. **Polish** — keyboard navigation, focus states, ARIA labels, empty/error states, mobile, performance, copy review.
+1. ✅ **Design system** — tokens, typography, dark/light theme, shadcn/ui primitives, accessible form and modal patterns.
+2. ✅ **App shell** — auth pages, workspace switcher, navigation, responsive layout, loading/error/empty states.
+3. ✅ **Projects & environments** — hierarchy navigation, create/archive/delete flows, duplicate and compare views.
+4. ✅ **Vault** — table with masked values, reveal-on-demand with audit, search/filter, descriptions, `.env` import, permission-gated export.
+5. ✅ **History & rollback** — version timeline, diff view, confirmed rollback.
+6. ✅ **Team & RBAC** — workspace members, project members, role/custom permission editor, invitation flow.
+7. ✅ **Service tokens** — create/rotate/revoke, prefix display, one-time token reveal, usage stats. Routes: `/projects/[projectId]/credentials`.
+8. ✅ **Audit & settings** — filterable audit viewer (`/audit`), project webhooks (`/projects/[projectId]/webhooks`), billing via Stripe (`/billing`).
+9. **Polish** — keyboard navigation, focus states, ARIA labels, empty/error states, mobile, performance, copy review. *(remaining)*
 
 **Done when:** every screen is API-backed, no hardcoded display data, all states designed, accessibility audit clean, and you sign off on each sub-stage.
 

@@ -223,7 +223,7 @@ export default function WorkspaceSecretsVaultPage({
             <SelectTrigger className="bg-black/20 border-line text-ink">
               <SelectValue placeholder={projectsLoading ? 'Loading projects...' : 'Select project'} />
             </SelectTrigger>
-            <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+            <SelectContent className="border-line/40 bg-popover text-ink">
               {projects?.map((p) => (
                 <SelectItem key={p.id} value={p.id}>
                   {p.name}
@@ -254,7 +254,7 @@ export default function WorkspaceSecretsVaultPage({
                 }
               />
             </SelectTrigger>
-            <SelectContent className="border-line/40 bg-[#120a38] text-ink">
+            <SelectContent className="border-line/40 bg-popover text-ink">
               {environments?.map((e) => (
                 <SelectItem key={e.id} value={e.id}>
                   {e.name} (/{e.slug})

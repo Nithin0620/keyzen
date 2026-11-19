@@ -20,6 +20,8 @@ import {
   GitCompare,
   Trash2,
   KeyRound,
+  Fingerprint,
+  Webhook,
 } from 'lucide-react';
 
 export interface ProjectDetail {
@@ -136,6 +138,18 @@ export default function ProjectDetailPage({
               </Button>
             </Link>
           )}
+
+          <Link href={`/workspaces/${workspaceId}/projects/${projectId}/credentials`}>
+            <Button variant="ghost" size="sm">
+              <Fingerprint className="mr-1.5 size-3.5" /> Service Tokens
+            </Button>
+          </Link>
+
+          <Link href={`/workspaces/${workspaceId}/projects/${projectId}/webhooks`}>
+            <Button variant="ghost" size="sm">
+              <Webhook className="mr-1.5 size-3.5" /> Webhooks
+            </Button>
+          </Link>
 
           <Button
             variant="ghost"

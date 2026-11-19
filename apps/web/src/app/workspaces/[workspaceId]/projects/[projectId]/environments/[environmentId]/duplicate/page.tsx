@@ -63,7 +63,7 @@ export default function DuplicateEnvironmentPage({
     <div className="mx-auto max-w-xl space-y-6">
       <Card className="border-line/40 shadow-2xl">
         <CardHeader className="space-y-2">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-purple-400 shadow-peri-glow">
+          <div className="flex size-10 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <Copy className="size-5 text-white" />
           </div>
           <CardTitle className="text-2xl font-light tracking-tight text-ink">
@@ -82,7 +82,7 @@ export default function DuplicateEnvironmentPage({
             )}
 
             <div className="rounded-lg border border-line/20 bg-black/20 p-3 text-xs text-ink-3 flex items-center gap-2">
-              <ShieldCheck className="size-4 text-[#5ee6a8] shrink-0" />
+              <ShieldCheck className="size-4 text-success shrink-0" />
               <span>
                 Source secret values remain securely sealed in KMS/envelopes. Plaintext values are never returned to the browser during duplication.
               </span>
