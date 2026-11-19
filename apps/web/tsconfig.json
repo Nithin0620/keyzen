@@ -6,6 +6,10 @@
     "jsx": "preserve",
     "noEmit": true,
     "allowJs": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "lib": [
       "dom",
       "dom.iterable",

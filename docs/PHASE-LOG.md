@@ -640,3 +640,47 @@ Typecheck and lint pass. API tests pass with 97 tests across 24 test files, incl
 
 - Implement Phase 13 dashboard UI only after explicit continuation.
 - Connect the skipped Playwright smoke test to the real dashboard and keep the Phase 12 security invariants intact.
+
+## Phase 13, Subphase 1 — Design system and frontend foundation
+
+- Status: done; date: 2026-11-19.
+- Files: 41 created, 9 modified, 50 total; 5 new test files with 16 new web tests; `docs/design.md` integrated.
+
+### What changed
+
+- Added Radix-based shadcn-compatible primitives, Radix toast/tooltip providers, and TanStack Query with form, validation, theme, and class-variance utilities.
+- Added dark-first violet/navy design tokens matching `docs/design.md` (`#0d0830` navy, `#6f78ff` / `#8d94ff` periwinkle, `#f4f2ff` ink, hairline borders `rgba(196,178,255,0.15)`), frosted glass surfaces with `backdrop-filter: blur(22px)`, dynamic `--u` viewport scaling, and reduced-motion handling in `apps/web/src/app/globals.css`.
+- Configured Google Font tokens in `apps/web/src/app/layout.tsx` and `tailwind.config.ts`: `Inter Tight` (sans), `Instrument Serif` (italic serif accent), and `Fira Code` (mono).
+- Added reusable button (with periwinkle glow, ghost, dark, and white variants), input, textarea, label, badge (with live pulsing dot and status indicators), card (frosted glass surface), alert, skeleton, table, checkbox, switch, tabs, popover, tooltip, select, dialog, sheet, dropdown menu, toast, form, and state components.
+- Added shared confirmation, empty, error, and loading states plus a theme toggle under `apps/web/src/components/ui/`.
+- Added a credentialed API client with typed `ApiError`, field errors, request ids, rate-limit headers, `Retry-After`, and single-flight refresh under `apps/web/src/lib/api/`.
+- Added app-level providers, route-level error/global-error/loading boundaries, and styled the root showcase layout to demonstrate the design system without introducing fake product data.
+- Added Vitest DOM setup, `@/*` aliases, and component/client tests for route states, buttons, confirmation behavior, API errors, and rate-limit parsing.
+
+### Decisions
+
+- Harmonized Radix accessibility and shadcn ergonomics with the high-fidelity dark glassmorphic aesthetic from `docs/design.md`.
+- Kept the API as the permission authority; the web foundation only establishes patterns and does not implement route guards yet.
+- Production builds now require an explicit `NEXT_PUBLIC_API_URL`; development uses `http://localhost:3001` from `.env.example`.
+- Refresh requests are deduplicated with one retry, never recurse, and preserve structured 401/403, rate-limit, and request-id handling.
+- No product screen, fake record, hardcoded metric, browser-stored token, or secret value was added in this subphase.
+
+### Verification
+
+- Verification command: `pnpm typecheck && pnpm lint && pnpm test && pnpm build && pnpm test:e2e:list`
+- Verification result: pass
+- Full workspace passes with 230 tests: API 195, web 16, SDK 19; web tests cover 5 files and all new route-state, client, and confirmation behavior.
+- Typecheck and lint pass with 0 errors and 0 warnings; production build compiles and prerenders cleanly.
+- Playwright lists one skipped Phase 13 smoke test; real browser coverage remains gated on the dashboard screens.
+
+### Risks / issues found
+
+- Visual language and component APIs need user review before they are propagated into feature screens.
+- Next.js build still warns that the ESLint plugin is not detected; this is pre-existing and does not fail verification.
+- Browser E2E remains skipped until the real dashboard exists, so client behavior is currently covered by Vitest only.
+- The API client has not yet issued a live request to `/health/live`; subphase 2 will exercise real auth and workspace endpoints.
+
+### Carryover to next phase
+
+- Implement Phase 13 subphase 2 — authentication and app shell — only after explicit review approval.
+- Keep verify, reset, invite, and billing callback tokens in URL fragments and preserve all Phase 12 tenant, secret-handling, and audit invariants.
