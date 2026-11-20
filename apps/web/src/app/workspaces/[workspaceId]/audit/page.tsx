@@ -1,6 +1,6 @@
 'use client';
 
-import { use, useState } from 'react';
+import { Fragment, use, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { AuditView } from '@aegis/shared';
 import { apiClient } from '@/lib/api/client';
@@ -213,9 +213,8 @@ export default function AuditLogPage({
                   const hasMetadata = Object.keys(log.metadata).length > 0;
 
                   return (
-                    <>
+                    <Fragment key={log.id}>
                       <tr
-                        key={log.id}
                         className={`transition-colors hover:bg-white/[0.02] ${hasMetadata ? 'cursor-pointer' : ''}`}
                         onClick={() => hasMetadata && setExpandedId(isExpanded ? null : log.id)}
                       >
@@ -257,7 +256,7 @@ export default function AuditLogPage({
                         </td>
                       </tr>
                       {isExpanded && hasMetadata && (
-                        <tr key={`${log.id}-meta`} className="bg-black/30">
+                        <tr className="bg-black/30">
                           <td colSpan={5} className="px-5 py-3">
                             <div className="rounded-lg border border-line/20 bg-black/40 p-3">
                               <p className="font-mono text-[10px] uppercase tracking-wider text-ink-3 mb-2">Metadata</p>
@@ -273,7 +272,7 @@ export default function AuditLogPage({
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

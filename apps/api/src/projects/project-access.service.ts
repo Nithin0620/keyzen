@@ -79,7 +79,11 @@ export class ProjectAccessService {
 
   async requireProjectAdmin(userId: string, workspaceId: string, projectId: string): Promise<ProjectMemberRecord> {
     const member = await this.requireProjectMember(userId, workspaceId, projectId);
-    if (member.role !== 'OWNER' && member.role !== 'ADMIN') {
+    if (
+      member.role !== 'OWNER' &&
+      member.role !== 'ADMIN' &&
+      !member.customPermissions?.includes('members.invite')
+    ) {
       throw new ForbiddenException('Project admin access required');
     }
     return member;

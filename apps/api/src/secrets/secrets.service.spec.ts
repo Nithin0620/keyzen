@@ -93,7 +93,10 @@ class FakeModel {
     return new Query(async () => this.docs.find((doc) => String(doc._id) === String(id)) ?? null);
   }
 
-  create(input: Record<string, any> | Record<string, any>[], _options?: unknown): Promise<any> {
+  create(input: Record<string, any> | Record<string, any>[], options?: { session?: unknown }): Promise<any> {
+    if (options?.session && !Array.isArray(input)) {
+      throw new Error('create() with a session requires an array as the first argument');
+    }
     if (Array.isArray(input)) {
       const created = input.map((doc) => ({ _id: new Types.ObjectId(), ...doc }));
       this.docs.push(...created);

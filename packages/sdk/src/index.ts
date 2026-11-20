@@ -154,7 +154,7 @@ export class Aegis {
     this.projectId = options.projectId;
     this.environment = options.environment;
     this.apiKey = options.apiKey;
-    this.endpoint = normalizeEndpoint(options.endpoint ?? process.env.AEGIS_API_URL ?? 'http://localhost:3000');
+    this.endpoint = normalizeEndpoint(options.endpoint ?? process.env.AEGIS_API_URL ?? 'http://localhost:3001');
     this.cacheTtlMs = options.cacheTtlMs ?? 60_000;
     this.timeoutMs = options.timeoutMs ?? 5_000;
     this.retries = options.retries ?? 2;

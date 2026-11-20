@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShieldCheck, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 import { getApiBaseUrl } from '@/lib/api/client';
 
 export default function SignupPage(): React.ReactNode {
@@ -19,6 +19,7 @@ export default function SignupPage(): React.ReactNode {
   const [serverError, setServerError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [successEmail, setSuccessEmail] = useState<string | null>(null);
+  const [oauthLoading, setOauthLoading] = useState(false);
 
   const {
     register,
@@ -46,6 +47,19 @@ export default function SignupPage(): React.ReactNode {
     return (
       <div className="relative flex min-h-screen items-center justify-center p-6">
         <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
+
+        {/* Auth Navigation */}
+        <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center gap-2 text-ink hover:text-peri-2 transition-colors">
+            <ShieldCheck className="size-5" />
+            <span className="font-semibold tracking-tight">Aegis</span>
+          </Link>
+          <Link href="/" className="text-sm text-ink-2 hover:text-ink transition-colors flex items-center gap-1">
+            <ArrowLeft className="size-4" />
+            Back to Home
+          </Link>
+        </div>
+
         <Card className="w-full max-w-md border-line/40 shadow-2xl text-center">
           <CardHeader>
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-success/20 text-success border border-success/30">
@@ -75,6 +89,18 @@ export default function SignupPage(): React.ReactNode {
     <div className="relative flex min-h-screen items-center justify-center p-6">
       <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
 
+      {/* Auth Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2 text-ink hover:text-peri-2 transition-colors">
+          <ShieldCheck className="size-5" />
+          <span className="font-semibold tracking-tight">Aegis</span>
+        </Link>
+        <Link href="/" className="text-sm text-ink-2 hover:text-ink transition-colors flex items-center gap-1">
+          <ArrowLeft className="size-4" />
+          Back to Home
+        </Link>
+      </div>
+
       <Card className="w-full max-w-md border-line/40 shadow-2xl">
         <CardHeader className="space-y-2 text-center">
           <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
@@ -84,7 +110,7 @@ export default function SignupPage(): React.ReactNode {
             Create your <span className="font-serif italic text-peri-2">Aegis</span> account
           </CardTitle>
           <CardDescription className="text-ink-2">
-            Supply-side studio for curating & managing programmatic keys
+            Start managing your secrets with military-grade encryption
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -167,9 +193,19 @@ export default function SignupPage(): React.ReactNode {
 
           <a
             href={`${getApiBaseUrl()}/auth/google`}
-            className="flex h-10 w-full items-center justify-center rounded-[10px] border border-line bg-black/20 text-sm font-medium text-ink transition-colors hover:bg-black/40"
+            onClick={() => setOauthLoading(true)}
+            className={`flex h-10 w-full items-center justify-center rounded-[10px] border border-line bg-black/20 text-sm font-medium text-ink transition-colors hover:bg-black/40 ${
+              oauthLoading ? 'pointer-events-none opacity-80' : ''
+            }`}
           >
-            Continue with Google OAuth
+            {oauthLoading ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin text-peri-2" />
+                Connecting to Google...
+              </>
+            ) : (
+              'Continue with Google'
+            )}
           </a>
         </CardContent>
         <CardFooter className="justify-center border-t border-line/20 pt-4 text-xs text-ink-3">

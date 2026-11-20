@@ -388,7 +388,11 @@ export default function WebhooksPage({
                           disabled={deactivateMutation.isPending}
                           title="Deactivate webhook"
                         >
-                          <PowerOff className="size-3.5" />
+                          {deactivateMutation.isPending && deactivateMutation.variables === wh.id ? (
+                            <Loader2 className="size-3.5 animate-spin text-destructive" />
+                          ) : (
+                            <PowerOff className="size-3.5" />
+                          )}
                         </Button>
                       </>
                     )}

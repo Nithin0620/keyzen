@@ -117,6 +117,7 @@ describe('ProjectsService', () => {
   const ownerId = new Types.ObjectId();
   const adminId = new Types.ObjectId();
   const memberId = new Types.ObjectId();
+  const inviteeId = new Types.ObjectId();
   let users: FakeModel;
   let workspaceMembers: FakeModel;
   let projects: FakeModel;
@@ -161,12 +162,14 @@ describe('ProjectsService', () => {
     users.docs.push(
       { _id: ownerId, email: 'owner@example.com', status: 'ACTIVE' },
       { _id: adminId, email: 'admin@example.com', status: 'ACTIVE' },
-      { _id: memberId, email: 'member@example.com', status: 'ACTIVE' }
+      { _id: memberId, email: 'member@example.com', status: 'ACTIVE' },
+      { _id: inviteeId, email: 'invitee@example.com', status: 'ACTIVE' }
     );
     workspaceMembers.docs.push(
       { _id: new Types.ObjectId(), workspaceId, userId: ownerId, role: 'OWNER' },
       { _id: new Types.ObjectId(), workspaceId, userId: adminId, role: 'MEMBER' },
       { _id: new Types.ObjectId(), workspaceId, userId: memberId, role: 'MEMBER' },
+      { _id: new Types.ObjectId(), workspaceId, userId: inviteeId, role: 'MEMBER' },
       { _id: new Types.ObjectId(), workspaceId: otherWorkspaceId, userId: ownerId, role: 'OWNER' }
     );
 
@@ -192,6 +195,48 @@ describe('ProjectsService', () => {
       cipher,
       access
     );
+  });
+
+  it('lists only projects the caller is an explicit project member of', async () => {
+    const payments = await service.create(String(ownerId), String(workspaceId), {
+      name: 'Payments',
+      slug: 'payments',
+    });
+    await service.create(String(ownerId), String(workspaceId), { name: 'Billing', slug: 'billing' });
+    await service.addMember(String(ownerId), String(workspaceId), payments.id, {
+      email: 'member@example.com',
+      role: 'DEVELOPER',
+      customPermissions: [],
+    });
+
+    expect((await service.list(String(ownerId), String(workspaceId))).map((project) => project.slug)).toEqual([
+      'payments',
+      'billing',
+    ]);
+    expect((await service.list(String(memberId), String(workspaceId))).map((project) => project.slug)).toEqual([
+      'payments',
+    ]);
+    expect((await service.list(String(adminId), String(workspaceId)))).toEqual([]);
+  });
+
+  it('honors the members.invite custom permission for project membership changes', async () => {
+    const project = await service.create(String(ownerId), String(workspaceId), {
+      name: 'Payments',
+      slug: 'payments',
+    });
+    await service.addMember(String(ownerId), String(workspaceId), project.id, {
+      email: 'member@example.com',
+      role: 'DEVELOPER',
+      customPermissions: ['members.invite'],
+    });
+
+    const added = await service.addMember(String(memberId), String(workspaceId), project.id, {
+      email: 'invitee@example.com',
+      role: 'VIEWER',
+      customPermissions: [],
+    });
+
+    expect(added).toMatchObject({ email: 'invitee@example.com', role: 'VIEWER' });
   });
 
   it('creates projects with a unique workspace slug, archives, restores and hard-deletes with typed confirmation', async () => {

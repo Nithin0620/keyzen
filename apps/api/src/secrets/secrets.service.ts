@@ -619,11 +619,13 @@ export class SecretsService {
     }
     try {
       await this.secretValues.create(
-        {
-          ...filter,
-          ...cipherFields(encrypted),
-          valueVersion: 1,
-        },
+        [
+          {
+            ...filter,
+            ...cipherFields(encrypted),
+            valueVersion: 1,
+          },
+        ],
         { session }
       );
       await this.writeHistory(workspaceId, secretId, environmentId, encrypted, 1, changedBy, session);

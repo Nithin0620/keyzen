@@ -25,6 +25,7 @@ import {
   FolderGit2,
   Lock,
   Layers,
+  Loader2,
 } from 'lucide-react';
 import type { ProjectSummary } from '../projects/page';
 import type { EnvironmentSummary } from '../projects/[projectId]/page';
@@ -37,6 +38,10 @@ export interface SecretItemView {
     present: boolean;
     masked: string | null;
   };
+}
+
+interface EnvExportResponse {
+  entries: Array<{ name: string; value: string }>;
 }
 
 export default function WorkspaceSecretsVaultPage({
@@ -54,6 +59,8 @@ export default function WorkspaceSecretsVaultPage({
   // Reveal state map: secretId -> revealedPlaintext
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
   const [revealingSecretId, setRevealingSecretId] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   // Projects in workspace
   const { data: projects, isLoading: projectsLoading } = useQuery({
@@ -61,10 +68,19 @@ export default function WorkspaceSecretsVaultPage({
     queryFn: () => apiClient.get<ProjectSummary[]>(`/workspaces/${workspaceId}/projects`),
   });
 
-  // Auto-select first project if none in query
+  // Auto-select an accessible project
   useEffect(() => {
-    if (!selectedProjectId && projects && projects.length > 0) {
+    if (!projects) return;
+    if (projects.length === 0) {
+      if (selectedProjectId) {
+        setSelectedProjectId('');
+        setSelectedEnvId('');
+      }
+      return;
+    }
+    if (!projects.some((project) => project.id === selectedProjectId)) {
       setSelectedProjectId(projects[0].id);
+      setSelectedEnvId('');
     }
   }, [projects, selectedProjectId]);
 
@@ -152,24 +168,30 @@ export default function WorkspaceSecretsVaultPage({
   // Browser-side .env file export
   const handleExportEnv = async (): Promise<void> => {
     if (!selectedEnvId) return;
+    setExporting(true);
+    setExportError(null);
     try {
-      const entries = await apiClient.get<Array<{ name: string; value: string }>>(
+      const result = await apiClient.get<EnvExportResponse>(
         `/workspaces/${workspaceId}/projects/${selectedProjectId}/secrets/export`,
         {
           searchParams: { environmentId: selectedEnvId },
         }
       );
-      const lines = entries.map((e) => `${e.name}=${e.value}`).join('\n');
-      const blob = new Blob([lines], { type: 'text/plain' });
+      const lines = result.entries.map((e) => `${e.name}=${e.value}`).join('\n');
+      const blob = new Blob([lines], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       const envName = environments?.find((e) => e.id === selectedEnvId)?.slug ?? 'env';
       a.download = `.env.${envName}`;
+      document.body.appendChild(a);
       a.click();
-      URL.revokeObjectURL(url);
-    } catch {
-      // Error surfaced
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 0);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : 'Unable to export this environment.');
+    } finally {
+      setExporting(false);
     }
   };
 
@@ -191,8 +213,16 @@ export default function WorkspaceSecretsVaultPage({
 
         {selectedProjectId && selectedEnvId && (
           <div className="flex flex-wrap items-center gap-2">
-            <Button variant="ghost" size="sm" onClick={() => void handleExportEnv()}>
-              <Download className="mr-1.5 size-3.5" /> Export .env
+            <Button variant="ghost" size="sm" onClick={() => void handleExportEnv()} disabled={exporting}>
+              {exporting ? (
+                <>
+                  <Loader2 className="mr-1.5 size-3.5 animate-spin text-peri-2" /> Exporting...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-1.5 size-3.5" /> Export .env
+                </>
+              )}
             </Button>
             <Link
               href={`/workspaces/${workspaceId}/secrets/import?project=${selectedProjectId}&env=${selectedEnvId}`}
@@ -211,6 +241,14 @@ export default function WorkspaceSecretsVaultPage({
           </div>
         )}
       </div>
+
+      {exportError && (
+        <ErrorState
+          title="Export failed"
+          description={exportError}
+          onRetry={() => void handleExportEnv()}
+        />
+      )}
 
       {/* Scope Filter Selectors */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -358,7 +396,13 @@ export default function WorkspaceSecretsVaultPage({
                               onClick={() => void handleReveal(item.id)}
                               title={isRevealed ? 'Hide secret' : 'Reveal secret (audited)'}
                             >
-                              {isRevealed ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />}
+                              {revealingSecretId === item.id ? (
+                                <Loader2 className="size-3.5 animate-spin text-peri-2" />
+                              ) : isRevealed ? (
+                                <EyeOff className="size-3.5" />
+                              ) : (
+                                <Eye className="size-3.5" />
+                              )}
                             </Button>
                           )}
                         </div>

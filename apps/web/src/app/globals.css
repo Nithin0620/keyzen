@@ -6,43 +6,43 @@
   /* Dynamic 1440px / 390px scaling unit */
   --u: calc(100vw / 1440);
 
-  --navy: #0d0830;
-  --navy-deep: #0b0626;
-  --violet-deep: #160c40;
-  --peri: #6f78ff;
-  --peri-2: #8d94ff;
-  --ink: #f4f2ff;
-  --ink-2: rgba(236, 232, 255, 0.72);
-  --ink-3: rgba(220, 214, 255, 0.5);
-  --line: rgba(196, 178, 255, 0.15);
-  --line-subtle: rgba(190, 170, 255, 0.08);
-  --glass-gradient: linear-gradient(160deg, rgba(110, 90, 240, 0.14), rgba(60, 40, 150, 0.08));
+  --navy: #030d0a;
+  --navy-deep: #021a12;
+  --violet-deep: #0a2e1f;
+  --peri: #10b981;
+  --peri-2: #34d399;
+  --ink: #f0fdf4;
+  --ink-2: rgba(220, 252, 231, 0.72);
+  --ink-3: rgba(187, 247, 208, 0.5);
+  --line: rgba(52, 211, 153, 0.15);
+  --line-subtle: rgba(52, 211, 153, 0.08);
+  --glass-gradient: linear-gradient(160deg, rgba(16, 185, 129, 0.14), rgba(5, 150, 105, 0.08));
   --glass-blur: blur(22px) saturate(1.35);
   --ambient-radial: radial-gradient(ellipse at top, var(--violet-deep) 0%, var(--navy) 52%, var(--navy-deep) 100%);
 
-  --background: 252 60% 98%;
-  --foreground: 248 71% 11%;
+  --background: 152 60% 98%;
+  --foreground: 152 50% 10%;
   --card: 0 0% 100%;
-  --card-foreground: 248 71% 11%;
-  --popover: 252 60% 99%;
-  --popover-foreground: 248 71% 11%;
-  --primary: 236 100% 72%;
+  --card-foreground: 152 50% 10%;
+  --popover: 152 60% 99%;
+  --popover-foreground: 152 50% 10%;
+  --primary: 160 84% 39%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 250 60% 95%;
-  --secondary-foreground: 248 60% 18%;
-  --muted: 250 45% 95%;
-  --muted-foreground: 250 25% 42%;
-  --accent: 250 100% 96%;
-  --accent-foreground: 236 70% 40%;
+  --secondary: 155 60% 95%;
+  --secondary-foreground: 155 60% 18%;
+  --muted: 155 45% 95%;
+  --muted-foreground: 155 25% 42%;
+  --accent: 155 100% 96%;
+  --accent-foreground: 160 70% 30%;
   --destructive: 0 72% 51%;
   --destructive-foreground: 0 0% 100%;
   --success: 158 64% 36%;
   --success-foreground: 0 0% 100%;
   --warning: 32 92% 45%;
   --warning-foreground: 24 50% 10%;
-  --border: 254 60% 88%;
-  --input: 254 60% 88%;
-  --ring: 236 100% 72%;
+  --border: 155 60% 88%;
+  --input: 155 60% 88%;
+  --ring: 160 84% 39%;
   --radius: 0.75rem;
   color-scheme: light;
 }
@@ -55,29 +55,29 @@
 
 .dark,
 :root[class~='dark'] {
-  --background: 248 71% 11%;
-  --foreground: 249 100% 97%;
-  --card: 250 50% 14%;
-  --card-foreground: 249 100% 97%;
-  --popover: 250 70% 13%;
-  --popover-foreground: 249 100% 97%;
-  --primary: 236 100% 72%;
+  --background: 152 50% 6%;
+  --foreground: 152 20% 97%;
+  --card: 155 40% 8%;
+  --card-foreground: 152 20% 97%;
+  --popover: 155 45% 7%;
+  --popover-foreground: 152 20% 97%;
+  --primary: 160 84% 39%;
   --primary-foreground: 0 0% 100%;
-  --secondary: 248 45% 20%;
-  --secondary-foreground: 249 100% 97%;
-  --muted: 248 35% 18%;
-  --muted-foreground: 250 30% 75%;
-  --accent: 249 60% 22%;
-  --accent-foreground: 236 100% 85%;
+  --secondary: 155 45% 20%;
+  --secondary-foreground: 152 20% 97%;
+  --muted: 155 35% 18%;
+  --muted-foreground: 155 30% 75%;
+  --accent: 155 60% 22%;
+  --accent-foreground: 160 84% 70%;
   --destructive: 0 72% 58%;
   --destructive-foreground: 0 0% 100%;
   --success: 154 75% 65%;
-  --success-foreground: 248 71% 11%;
+  --success-foreground: 152 50% 10%;
   --warning: 36 92% 60%;
   --warning-foreground: 24 60% 8%;
-  --border: 254 100% 85% / 0.15;
-  --input: 254 100% 85% / 0.18;
-  --ring: 236 100% 72%;
+  --border: 155 100% 85% / 0.15;
+  --input: 155 100% 85% / 0.18;
+  --ring: 160 84% 39%;
   color-scheme: dark;
 }
 
@@ -107,14 +107,14 @@
 .glass-surface {
   background: var(--glass-gradient);
   border: 1px solid var(--line);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 60px rgba(8, 3, 30, 0.28);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 24px 60px rgba(2, 13, 10, 0.28);
   backdrop-filter: var(--glass-blur);
   -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .glass-surface-hover {
-  background: linear-gradient(160deg, rgba(120, 100, 255, 0.2), rgba(70, 50, 170, 0.14));
-  border-color: rgba(200, 180, 255, 0.32);
+  background: linear-gradient(160deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.14));
+  border-color: rgba(52, 211, 153, 0.32);
 }
 
 /* Pulse animation for live indicators */

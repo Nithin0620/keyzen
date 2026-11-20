@@ -100,6 +100,17 @@ describe('Aegis SDK', () => {
     expect(validationInit.headers).toMatchObject({ authorization: 'Bearer ags_test_token' });
   });
 
+  it('defaults the endpoint to the local API port', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(validationResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    const client = createClient({ endpoint: undefined });
+
+    await client.validate();
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock.mock.calls[0][0]).toEqual(new URL('http://localhost:3001/v1/validate'));
+  });
+
   it('expires cache entries by TTL and clears them on disconnect', async () => {
     const fetchMock = vi.fn().mockImplementation(async () => secretsResponse());
     vi.stubGlobal('fetch', fetchMock);

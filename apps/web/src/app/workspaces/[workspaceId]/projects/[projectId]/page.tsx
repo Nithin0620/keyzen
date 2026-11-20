@@ -22,6 +22,7 @@ import {
   KeyRound,
   Fingerprint,
   Webhook,
+  Users,
 } from 'lucide-react';
 
 export interface ProjectDetail {
@@ -148,6 +149,12 @@ export default function ProjectDetailPage({
           <Link href={`/workspaces/${workspaceId}/projects/${projectId}/webhooks`}>
             <Button variant="ghost" size="sm">
               <Webhook className="mr-1.5 size-3.5" /> Webhooks
+            </Button>
+          </Link>
+
+          <Link href={`/workspaces/${workspaceId}/projects/${projectId}/members`}>
+            <Button variant="ghost" size="sm">
+              <Users className="mr-1.5 size-3.5" /> Members
             </Button>
           </Link>
 

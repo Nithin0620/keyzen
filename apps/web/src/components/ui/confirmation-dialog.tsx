@@ -1,6 +1,7 @@
 'use client';
 
 import { useId, useState, type ReactNode } from 'react';
+import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from './alert';
 import { Button } from './button';
 import {
@@ -119,7 +120,14 @@ export function ConfirmationDialog({
             onClick={handleConfirm}
             disabled={pending || !confirmationMatches}
           >
-            {effectiveConfirmLabel}
+            {pending ? (
+              <>
+                <Loader2 className="mr-2 size-4 animate-spin" />
+                {destructive ? 'Deleting...' : 'Processing...'}
+              </>
+            ) : (
+              effectiveConfirmLabel
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

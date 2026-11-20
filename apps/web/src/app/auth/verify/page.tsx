@@ -6,7 +6,7 @@ import { apiClient } from '@/lib/api/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, XCircle, ArrowLeft, Loader2 } from 'lucide-react';
 
 export default function VerifyPage(): React.ReactNode {
   const [state, setState] = useState<'reading' | 'verifying' | 'success' | 'error'>('reading');
@@ -43,6 +43,18 @@ export default function VerifyPage(): React.ReactNode {
     <div className="relative flex min-h-screen items-center justify-center p-6">
       <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
 
+      {/* Auth Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2 text-ink hover:text-peri-2 transition-colors">
+          <ShieldCheck className="size-5" />
+          <span className="font-semibold tracking-tight">Aegis</span>
+        </Link>
+        <Link href="/" className="text-sm text-ink-2 hover:text-ink transition-colors flex items-center gap-1">
+          <ArrowLeft className="size-4" />
+          Back to Home
+        </Link>
+      </div>
+
       <Card className="w-full max-w-md border-line/40 shadow-2xl text-center">
         <CardHeader className="space-y-2">
           {state === 'reading' || state === 'verifying' ? (
@@ -71,7 +83,7 @@ export default function VerifyPage(): React.ReactNode {
               ? 'Your email address has been verified. You can now access your studio.'
               : state === 'error'
               ? 'We could not verify your email address.'
-              : 'Securing your cryptographic identity...'}
+              : 'Verifying your email address...'}
           </CardDescription>
         </CardHeader>
 

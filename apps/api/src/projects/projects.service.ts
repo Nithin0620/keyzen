@@ -113,7 +113,15 @@ export class ProjectsService {
 
   async list(userId: string, workspaceId: string): Promise<ProjectView[]> {
     await this.access.requireWorkspaceMember(userId, workspaceId);
-    const projects = await this.projects.find({ workspaceId: objectId(workspaceId) }).exec();
+    const memberships = await this.projectMembers
+      .find({ workspaceId: objectId(workspaceId), userId: objectId(userId) })
+      .exec();
+    const projects = await this.projects
+      .find({
+        workspaceId: objectId(workspaceId),
+        _id: { $in: memberships.map((membership) => membership.projectId) },
+      })
+      .exec();
     return Promise.all(projects.map((project) => this.projectView(project, this.emptySummary())));
   }
 

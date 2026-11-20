@@ -17,6 +17,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { LoadingState } from '@/components/ui/loading-state';
 import { ErrorState } from '@/components/ui/error-state';
+import { EmptyState } from '@/components/ui/empty-state';
+import { ProjectRbacPanel } from '@/components/rbac/project-rbac-panel';
 import {
   UserPlus,
   Mail,
@@ -31,16 +33,27 @@ export interface WorkspaceMemberView {
   email: string;
   name?: string;
   role: WorkspaceRole;
-  joinedAt: string;
+  joinedAt?: string;
 }
 
 export interface WorkspaceInvitationView {
   id: string;
   email: string;
   role: WorkspaceRole;
-  status: 'PENDING' | 'ACCEPTED' | 'REVOKED' | 'EXPIRED';
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'REVOKED' | 'EXPIRED';
   expiresAt: string;
   createdAt: string;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+}
+
+function formatDate(value?: string): string {
+  if (!value) return '—';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleDateString();
 }
 
 export default function WorkspaceMembersPage({
@@ -49,11 +62,16 @@ export default function WorkspaceMembersPage({
   params: Promise<{ workspaceId: string }>;
 }): React.ReactNode {
   const { workspaceId } = use(params);
-  const { user } = useAuth();
+  const { user, workspaces } = useAuth();
+
+  const workspaceRole = workspaces.find((workspace) => workspace.id === workspaceId)?.role;
+  const canManageInvitations = workspaceRole === 'OWNER' || workspaceRole === 'ADMIN';
+  const canManageMembers = workspaceRole === 'OWNER';
 
   const [inviteModalOpen, setInviteModalOpen] = useState(false);
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
 
   // Transfer ownership states
   const [transferTargetUser, setTransferTargetUser] = useState<WorkspaceMemberView | null>(null);
@@ -62,6 +80,7 @@ export default function WorkspaceMembersPage({
   // Member removal states
   const [removeTargetUser, setRemoveTargetUser] = useState<WorkspaceMemberView | null>(null);
   const [removeModalOpen, setRemoveModalOpen] = useState(false);
+  const [revokingInviteId, setRevokingInviteId] = useState<string | null>(null);
 
   // Member list
   const {
@@ -82,7 +101,18 @@ export default function WorkspaceMembersPage({
   } = useQuery({
     queryKey: ['workspace-invitations', workspaceId],
     queryFn: () => apiClient.get<WorkspaceInvitationView[]>(`/workspaces/${workspaceId}/invitations`),
+    enabled: canManageInvitations,
   });
+
+  const { data: projects } = useQuery({
+    queryKey: ['workspace-projects', workspaceId],
+    queryFn: () => apiClient.get<ProjectOption[]>(`/workspaces/${workspaceId}/projects`),
+  });
+
+  const activeProjectId =
+    selectedProjectId && projects?.some((project) => project.id === selectedProjectId)
+      ? selectedProjectId
+      : (projects?.[0]?.id ?? '');
 
   const {
     register,
@@ -125,8 +155,13 @@ export default function WorkspaceMembersPage({
   };
 
   const handleRevokeInvite = async (invitationId: string): Promise<void> => {
-    await apiClient.post(`/workspaces/${workspaceId}/invitations/${invitationId}/revoke`, {});
-    await refetchInvites();
+    setRevokingInviteId(invitationId);
+    try {
+      await apiClient.post(`/workspaces/${workspaceId}/invitations/${invitationId}/revoke`, {});
+      await refetchInvites();
+    } finally {
+      setRevokingInviteId(null);
+    }
   };
 
   const handleRemoveMember = async (): Promise<void> => {
@@ -176,13 +211,15 @@ export default function WorkspaceMembersPage({
           </p>
         </div>
 
-        <Button variant="default" onClick={() => setInviteModalOpen(true)}>
-          <UserPlus className="mr-2 size-4" /> Invite Member
-        </Button>
+        {canManageInvitations && (
+          <Button variant="default" onClick={() => setInviteModalOpen(true)}>
+            <UserPlus className="mr-2 size-4" /> Invite Member
+          </Button>
+        )}
       </div>
 
       {/* Invite Member Card Modal Dialog */}
-      {inviteModalOpen && (
+      {inviteModalOpen && canManageInvitations && (
         <Card className="border-peri/40 shadow-2xl p-6 bg-violet-deep">
           <div className="flex items-center justify-between mb-4 border-b border-line/20 pb-3">
             <div className="flex items-center gap-2">
@@ -300,7 +337,7 @@ export default function WorkspaceMembersPage({
                             <Crown className="size-3.5" />
                             <span>OWNER</span>
                           </div>
-                        ) : (
+                        ) : canManageMembers ? (
                           <Select
                             defaultValue={m.role}
                             onValueChange={(val) => void handleRoleChange(m.userId, val as WorkspaceRole)}
@@ -314,13 +351,15 @@ export default function WorkspaceMembersPage({
                               <SelectItem value="VIEWER">VIEWER</SelectItem>
                             </SelectContent>
                           </Select>
+                        ) : (
+                          <Badge variant="secondary">{m.role}</Badge>
                         )}
                       </td>
                       <td className="py-4 px-6 align-middle font-sans text-xs text-ink-3">
-                        {new Date(m.joinedAt).toLocaleDateString()}
+                        {formatDate(m.joinedAt)}
                       </td>
                       <td className="py-4 px-6 align-middle text-right">
-                        {!isOwner && (
+                        {canManageMembers && !isOwner && (
                           <div className="flex items-center justify-end gap-2">
                             <Button
                               variant="ghost"
@@ -358,6 +397,40 @@ export default function WorkspaceMembersPage({
         </Card>
       </div>
 
+      <div className="space-y-4 border-t border-line/20 pt-6">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-medium text-ink">Project-wise Access Control</h2>
+            <p className="text-xs text-ink-3">
+              Select a project to manage its members and permissions.
+            </p>
+          </div>
+          {projects && projects.length > 0 && (
+            <Select value={activeProjectId} onValueChange={setSelectedProjectId}>
+              <SelectTrigger className="w-56 border-line bg-black/20 text-ink">
+                <SelectValue placeholder="Select project" />
+              </SelectTrigger>
+              <SelectContent className="border-line/40 bg-popover text-ink">
+                {projects.map((project) => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+        </div>
+
+        {projects && projects.length > 0 && activeProjectId ? (
+          <ProjectRbacPanel workspaceId={workspaceId} projectId={activeProjectId} />
+        ) : (
+          <EmptyState
+            title="No project access"
+            description="You are not a member of any project in this workspace."
+          />
+        )}
+      </div>
+
       {/* Invitations Table */}
       {invitations && invitations.length > 0 && (
         <div className="space-y-4">
@@ -393,17 +466,22 @@ export default function WorkspaceMembersPage({
                         )}
                       </td>
                       <td className="py-3 px-6 align-middle font-sans text-xs text-ink-3">
-                        {new Date(inv.expiresAt).toLocaleDateString()}
+                        {formatDate(inv.expiresAt)}
                       </td>
-                      <td className="py-3 px-6 align-middle text-right">
-                        {inv.status === 'PENDING' && (
+                      <td className="py-4 px-6 align-middle text-right">
+                        {canManageInvitations && inv.status === 'PENDING' && (
                           <Button
                             variant="ghost"
                             size="sm"
                             className="h-7 text-xs text-destructive hover:bg-destructive/10"
+                            disabled={revokingInviteId === inv.id}
                             onClick={() => void handleRevokeInvite(inv.id)}
                           >
-                            Revoke
+                            {revokingInviteId === inv.id ? (
+                              <Loader2 className="size-3.5 animate-spin" />
+                            ) : (
+                              'Revoke'
+                            )}
                           </Button>
                         )}
                       </td>

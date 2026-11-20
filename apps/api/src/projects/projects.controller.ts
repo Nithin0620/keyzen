@@ -7,8 +7,8 @@ import {
   environmentUpdateSchema,
   projectCreateSchema,
   projectIdParamSchema,
-  memberIdParamSchema,
   projectMemberCreateSchema,
+  projectMemberParamSchema,
   projectMemberRoleUpdateSchema,
   projectUpdateSchema,
   typedConfirmationSchema,
@@ -212,7 +212,7 @@ export function createProjectRoutes(projects: ProjectsService): ManagedRoute[] {
 
   const projectParams = [validate(projectIdParamSchema, 'params')];
   const environmentParams = [validate(environmentIdParamSchema, 'params')];
-  const memberRoleParams = [validate(memberIdParamSchema, 'params')];
+  const memberRoleParams = [validate(projectMemberParamSchema, 'params')];
 
   return [
     auditedRoute({ name: 'projects.create', method: 'post', path: BASE, permission: AUTHENTICATED, middlewares: [validate(workspaceIdParamSchema, 'params'), validate(projectCreateSchema)], handler: create }),

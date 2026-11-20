@@ -35,8 +35,8 @@ import {
   Plus,
   Radio,
   CreditCard,
+  Loader2,
 } from 'lucide-react';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface NavItem {
   name: string;
@@ -49,6 +49,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
   const pathname = usePathname();
   const { user, activeWorkspace, workspaces, selectWorkspace, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const navItems: NavItem[] = activeWorkspace
     ? [
@@ -98,7 +99,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
   };
 
   return (
-    <div className="flex min-h-screen bg-navy text-foreground selection:bg-peri/30 selection:text-ink">
+    <div className="flex h-screen w-full overflow-hidden bg-navy text-foreground selection:bg-peri/30 selection:text-ink">
       {/* Skip to main content link for accessibility */}
       <a
         href="#main-content"
@@ -108,9 +109,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
       </a>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden w-64 flex-col border-r border-line/30 bg-navy-deep/80 backdrop-blur-xl md:flex">
+      <aside className="hidden w-64 flex-col border-r border-line/30 bg-navy-deep/80 backdrop-blur-xl md:flex h-screen shrink-0 sticky top-0">
         {/* Brand */}
-        <div className="flex h-16 items-center gap-3 px-6 border-b border-line/20">
+        <div className="flex h-16 shrink-0 items-center gap-3 px-6 border-b border-line/20">
           <div className="flex size-8 items-center justify-center rounded-xl bg-gradient-to-tr from-peri to-peri-2 shadow-peri-glow">
             <ShieldCheck className="size-4 text-white" />
           </div>
@@ -121,7 +122,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
         </div>
 
         {/* Workspace Switcher */}
-        <div className="p-4 border-b border-line/20">
+        <div className="p-4 shrink-0 border-b border-line/20">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -162,7 +163,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
         </div>
 
         {/* Navigation items */}
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className="flex-1 space-y-1 p-4 overflow-y-auto">
           <div className="mb-2 px-2 font-mono text-[10px] uppercase tracking-wider text-ink-3">
             Navigation
           </div>
@@ -187,7 +188,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
         </nav>
 
         {/* User footer */}
-        <div className="border-t border-line/20 p-4">
+        <div className="border-t border-line/20 p-4 shrink-0 mt-auto">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2 truncate">
               <div className="flex size-7 items-center justify-center rounded-full bg-peri/30 font-mono text-xs font-semibold text-peri-2">
@@ -201,20 +202,32 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => void logout()}
+              disabled={loggingOut}
+              onClick={async () => {
+                setLoggingOut(true);
+                try {
+                  await logout();
+                } finally {
+                  setLoggingOut(false);
+                }
+              }}
               title="Sign Out"
               className="size-8 text-ink-3 hover:text-destructive"
             >
-              <LogOut className="size-4" />
+              {loggingOut ? (
+                <Loader2 className="size-4 animate-spin text-destructive" />
+              ) : (
+                <LogOut className="size-4" />
+              )}
             </Button>
           </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-1 flex-col h-screen min-w-0 overflow-hidden">
         {/* Top Navbar */}
-        <header className="flex h-16 items-center justify-between border-b border-line/20 bg-navy-deep/60 px-6 backdrop-blur-md">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-line/20 bg-navy-deep/60 px-6 backdrop-blur-md">
           <div className="flex items-center gap-4">
             {/* Mobile Sheet Trigger */}
             <Sheet open={mobileOpen} onOpenChange={setMobileOpen}>
@@ -262,7 +275,6 @@ export function DashboardShell({ children }: { children: React.ReactNode }): Rea
             <Badge variant="live">
               <Radio className="mr-1 size-3" /> SEALED
             </Badge>
-            <ThemeToggle />
           </div>
         </header>
 

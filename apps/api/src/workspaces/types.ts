@@ -15,6 +15,7 @@ export interface WorkspaceMemberRecord {
   workspaceId: Types.ObjectId;
   userId: Types.ObjectId;
   role: WorkspaceRole;
+  createdAt?: Date;
 }
 
 export interface InvitationRecord {
@@ -58,6 +59,7 @@ export interface MemberView {
   email: string;
   name?: string;
   role: WorkspaceRole;
+  joinedAt?: string;
 }
 
 export interface InvitationView {

@@ -49,11 +49,13 @@ ol,ul{list-style:none}
 .login{padding:0 calc(14 * var(--u));font-weight:500}
 .pill{display:inline-flex;align-items:center;justify-content:center;height:calc(46 * var(--u));padding:0 calc(17 * var(--u));border-radius:calc(10 * var(--u));font-weight:500;white-space:nowrap;transition:transform .25s ease,background .25s ease}
 .pill:hover{transform:translateY(calc(-1 * var(--u)))}
+.pill:active{transform:translateY(0) scale(.97);opacity:.85}
 .pill-glass{background:rgba(120,124,200,.42);border:1px solid rgba(210,210,255,.2);backdrop-filter:blur(10px)}
 .pill-dark{background:#141a4d;border:1px solid rgba(160,160,255,.18)}
 .pill-dark:hover{background:#1c2363}
 .btn{display:inline-flex;align-items:center;justify-content:center;height:calc(49 * var(--u));padding:0 calc(18 * var(--u));border-radius:calc(11 * var(--u));font-size:calc(16 * var(--u));font-weight:500;white-space:nowrap;transition:transform .25s ease,box-shadow .3s ease,background .3s ease}
 .btn:hover{transform:translateY(calc(-2 * var(--u)))}
+.btn:active{transform:translateY(0) scale(.97);opacity:.85}
 .btn-fill{background:var(--peri);box-shadow:0 calc(8 * var(--u)) calc(26 * var(--u)) rgba(90,96,255,.35)}
 .btn-fill:hover{background:var(--peri-2);box-shadow:0 calc(10 * var(--u)) calc(34 * var(--u)) rgba(110,116,255,.5)}
 .btn-ghost{border:1px solid rgba(230,226,255,.42);background:rgba(255,255,255,.03)}
@@ -321,24 +323,37 @@ html{scroll-behavior:auto}
 <a href="#studio">Platform<svg class="chevron" viewBox="0 0 10 10"><path d="M2 3.5 l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
 <a href="#packs">Security<svg class="chevron" viewBox="0 0 10 10"><path d="M2 3.5 l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
 <a href="#uses">Developers<svg class="chevron" viewBox="0 0 10 10"><path d="M2 3.5 l3 3 3-3" fill="none" stroke="currentColor" stroke-width="1.4"/></svg></a>
+<a href="/docs">Docs</a>
 <a href="#end">Audit Trail</a>
 </div>
-<div class="nav-right">
-<a class="login" href="/auth/login">Login</a>
-<a class="pill pill-glass" href="/auth/signup">View Studio</a>
-<a class="pill pill-dark" href="/auth/signup">Create Workspace — it's Free</a>
+<div class="nav-right" id="navRight">
+<a class="login" id="navLogin" href="/auth/login">Sign In</a>
+<a class="pill pill-dark" id="navSignup" href="/auth/signup">Get Started Free</a>
+<a class="pill pill-fill" id="navWorkspace" href="/dashboard" style="display:none;background:var(--peri);box-shadow:0 6px 20px rgba(16,185,129,0.35);color:#fff">Workspace &rarr;</a>
 </div>
 </nav>
+<script>
+try {
+  if (localStorage.getItem('aegis_authenticated') === 'true') {
+    var l = document.getElementById('navLogin');
+    var s = document.getElementById('navSignup');
+    var w = document.getElementById('navWorkspace');
+    if (l) l.style.display = 'none';
+    if (s) s.style.display = 'none';
+    if (w) w.style.display = 'inline-flex';
+  }
+} catch(e){}
+</script>
 <main class="content">
 <section class="hero" id="hero"><span id="top"></span>
 <h1 class="hero-title">
 <span class="line-mask"><span data-in>Introducing</span></span>
 <span class="line-mask"><span data-in>Aegis</span></span>
 </h1>
-<div class="hero-sub" data-in>Secret Ops Studio<sup>®</sup></div>
+<div class="hero-sub" data-in>Secrets Management Platform</div>
 <div class="hero-actions" data-in>
 <a class="btn btn-fill" href="/auth/signup">Create Free Workspace</a>
-<a class="btn btn-ghost" href="/auth/login">Enter the Studio</a>
+<a class="btn btn-ghost" href="/auth/login">Sign In</a>
 </div>
 <button class="scroll-card" id="scrollCard" data-in type="button">
 <span>Scroll down<br>&amp; discover</span>
@@ -346,11 +361,11 @@ html{scroll-behavior:auto}
 </button>
 </section>
 <section class="studio" id="studio">
-<h2 class="section-title reveal">The independent <span class="accent">self-serve secret studio</span><br>for every programmatic engineering team.</h2>
+<h2 class="section-title reveal">The self-hosted secrets platform for<br><span class="accent">engineering teams</span> that ship fast.</h2>
 <p class="lede reveal">Scope every secret by workspace, encrypt it server-side, and inject it at runtime without ever writing a value to disk.</p>
 <div class="center-actions reveal">
 <a class="btn btn-fill" href="/auth/signup">Create Free Workspace</a>
-<a class="btn btn-ghost" href="/auth/login">Enter the Studio</a>
+<a class="btn btn-ghost" href="/auth/login">Sign In</a>
 </div>
 <div class="stats reveal">
 <div class="stat"><div class="stat-num">AES-256</div><div class="stat-cap">GCM envelope encryption<br>on every value</div></div>
@@ -423,9 +438,9 @@ html{scroll-behavior:auto}
 <section class="packs" id="packs">
 <div class="split">
 <div class="reveal">
-<h2 class="section-title">Define policy, seal values, rotate keys, prove every change, <span class="accent">track <span class="serif">truth.</span></span></h2>
+<h2 class="section-title">Define policy. Seal values. Rotate keys.<br><span class="accent">Prove every <span class="serif">change.</span></span></h2>
 <p class="lede">Start from a workspace, add projects and environments, then let services resolve only the secrets they are allowed to see.</p>
-<div class="center-actions"><a class="btn btn-white" href="/auth/signup">Create Workspace</a><a class="btn btn-dk" href="/auth/login">Open Studio</a></div>
+<div class="center-actions"><a class="btn btn-white" href="/auth/signup">Create Workspace</a><a class="btn btn-dk" href="/auth/login">Sign In</a></div>
 </div>
 <div class="code reveal" aria-hidden="true">
 <div class="code-head"><span>resolve.json</span><span>AEGIS RUNTIME</span></div>
@@ -441,8 +456,8 @@ html{scroll-behavior:auto}
 </article>
 <article class="card glass reveal" style="--delay:.08s">
 <div class="card-top"><span class="idx">02</span><span class="icon"><svg viewBox="0 0 22 22"><rect x="2" y="3" width="18" height="12" rx="2"/><path d="M8 19h6 M11 15v4"/></svg></span></div>
-<div class="eyebrow">SCOPED TOKENS</div><h3>Only the Secret You Need</h3><p class="card-body">Service tokens are hashed, expiring, project-and-environment scoped, and revocable in an instant.</p>
-<div class="card-meta"><div><div class="metric-label">Runtime</div><div class="metric">Zero keys</div></div><a class="tlink" href="/auth/signup">Start sealing<svg viewBox="0 0 16 16"><path d="M2 8h11 M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
+<div class="eyebrow">SCOPED TOKENS</div><h3>Least-Privilege Access</h3><p class="card-body">Service tokens are hashed, expiring, project-and-environment scoped, and revocable in an instant.</p>
+<div class="card-meta"><div><div class="metric-label">Client receives</div><div class="metric">Zero key material</div></div><a class="tlink" href="/auth/signup">Start sealing<svg viewBox="0 0 16 16"><path d="M2 8h11 M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></div>
 </article>
 <article class="card glass reveal" style="--delay:.16s">
 <div class="card-top"><span class="idx">03</span><span class="icon"><svg viewBox="0 0 22 22"><path d="M2 16l6-6 4 4 8-9 M15 5h5v5"/></svg></span></div>
@@ -458,8 +473,8 @@ html{scroll-behavior:auto}
 </section>
 <section class="uses" id="uses">
 <div class="uses-head">
-<h2 class="section-title reveal">Built for everyone<br>who <span class="serif">ships</span> production.</h2>
-<p class="lede reveal">One workspace, four ways in. Every team gets the controls it needs, and nothing it doesn't.</p>
+<h2 class="section-title reveal">Built for teams that<br><span class="serif">ship</span> to production.</h2>
+<p class="lede reveal">One workspace, every role covered. Each team gets exactly the controls it needs.</p>
 </div>
 <div class="stairs">
 <article class="role glass reveal"><div class="card-top"><span class="tag">USE CASE</span><span class="icon"><svg viewBox="0 0 22 22"><rect x="2" y="7" width="18" height="12" rx="2"/><path d="M8 7V4h6v3 M2 12h18"/></svg></span></div><h3>Platform Engineer</h3><p class="role-body">Stop passing credentials around. Give every service exactly the secrets it needs, for exactly as long as it needs them.</p><div class="role-chips"><span class="chip">SDK inject</span><span class="chip">Zero .env</span></div><a class="tlink" href="/auth/signup">Explore now<svg viewBox="0 0 16 16"><path d="M2 8h11 M9 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5"/></svg></a></article>
@@ -470,21 +485,21 @@ html{scroll-behavior:auto}
 </section>
 <section class="end" id="end">
 <div class="cta reveal">
-<h2>Start Sealing<br><span class="serif">Secrets</span> Now!</h2>
+<h2>Start Sealing<br><span class="serif">Secrets</span> Securely</h2>
 <p class="lede">Create your workspace and inject your first secret without shipping a .env file.</p>
-<div class="cta-actions"><a class="btn btn-fill" href="/auth/signup">Create Free Workspace</a><a class="btn btn-ghost" href="/auth/login">Login</a></div>
-<div class="cta-note">No card needed&nbsp; · &nbsp;Server-side only&nbsp; · &nbsp;Audit-ready</div>
+<div class="cta-actions"><a class="btn btn-fill" href="/auth/signup">Create Free Workspace</a><a class="btn btn-ghost" href="/auth/login">Sign In</a></div>
+<div class="cta-note">Free to start&nbsp; · &nbsp;Server-side encryption&nbsp; · &nbsp;Audit-ready from day one</div>
 </div>
 <footer class="footer">
 <div class="footer-grid">
 <div class="brand"><span class="orb"></span><span>Aegis</span></div>
-<div class="brand"><p>The independent studio for curating, encrypting and orchestrating programmatic secrets.</p><span class="chip live">All systems sealed</span></div>
+<div class="brand"><p>The open platform for managing, encrypting, and injecting secrets at runtime.</p><span class="chip live">All systems operational</span></div>
 <div><h4>PRODUCT</h4><ul><li>Secrets Vault</li><li>Service Tokens</li><li>Version History</li></ul></div>
 <div><h4>USE CASES</h4><ul><li>Platform Engineering</li><li>Security</li><li>Application Teams</li><li>DevOps &amp; SRE</li></ul></div>
 <div><h4>CONTROLS</h4><ul><li>Workspace RBAC</li><li>Project RBAC</li><li>Audit Trail</li><li>Webhooks</li></ul></div>
-<div><h4>RESOURCES</h4><ul><li>SDK &amp; CLI</li><li>Documentation</li><li>System Status</li><li>Contact Us</li></ul></div>
+<div><h4>RESOURCES</h4><ul><li><a href="/docs/sdk">SDK &amp; CLI</a></li><li><a href="/docs">Documentation</a></li><li>System Status</li><li>Contact Us</li></ul></div>
 </div>
-<div class="legal"><span>©2026 Aegis: Secret Ops Studio®</span><div class="legal-links"><a href="#top">Privacy</a><a href="#top">Terms</a><a href="#top">Security</a></div></div>
+<div class="legal"><span>© 2026 Aegis</span><div class="legal-links"><a href="#top">Privacy</a><a href="#top">Terms</a><a href="#top">Security</a></div></div>
 <div class="wordmark" aria-hidden="true">Aegis</div>
 </footer>
 </section>
@@ -1040,6 +1055,57 @@ function initKoi(){
 }
 
 initKoi();
+
+(function checkAuth(){
+  function showWorkspace(){
+    var login = document.getElementById('navLogin');
+    var signup = document.getElementById('navSignup');
+    var ws = document.getElementById('navWorkspace');
+    if (login) login.style.display = 'none';
+    if (signup) signup.style.display = 'none';
+    if (ws) ws.style.display = 'inline-flex';
+  }
+
+  try {
+    if (localStorage.getItem('aegis_authenticated') === 'true') {
+      showWorkspace();
+    }
+  } catch(e){}
+
+  var apiUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+    ? 'http://localhost:3001'
+    : '';
+  if (apiUrl) {
+    fetch(apiUrl + '/auth/me', { credentials: 'include' })
+      .then(function(res){
+        if (res.ok) {
+          try { localStorage.setItem('aegis_authenticated', 'true'); } catch(e){}
+          showWorkspace();
+        } else if (res.status === 401) {
+          try {
+            localStorage.removeItem('aegis_authenticated');
+            var login = document.getElementById('navLogin');
+            var signup = document.getElementById('navSignup');
+            var ws = document.getElementById('navWorkspace');
+            if (login) login.style.display = '';
+            if (signup) signup.style.display = '';
+            if (ws) ws.style.display = 'none';
+          } catch(e){}
+        }
+      })
+      .catch(function(){});
+  }
+})();
+
+document.querySelectorAll('a.btn, a.pill, a.login').forEach(function(el){
+  el.addEventListener('click', function(){
+    el.style.opacity = '0.75';
+    el.style.pointerEvents = 'none';
+    if (!el.textContent.includes('...')) {
+      el.textContent = el.textContent.trim() + '...';
+    }
+  });
+});
 </script>
 </body>
 </html>

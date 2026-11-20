@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { apiClient } from '@/lib/api/client';
 import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
@@ -10,8 +11,10 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Users, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 
 export default function WorkspaceInvitationsPage(): React.ReactNode {
-  const { user, reloadWorkspaces } = useAuth();
+  const { user, isLoading, reloadWorkspaces } = useAuth();
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
+  const [loginHref, setLoginHref] = useState('/auth/login');
   const [processing, setProcessing] = useState(false);
   const [status, setStatus] = useState<'prompt' | 'accepted' | 'declined' | 'error'>('prompt');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -27,8 +30,16 @@ export default function WorkspaceInvitationsPage(): React.ReactNode {
       setErrorMessage('Missing invitation token in URL fragment. Please check your invitation email.');
     } else {
       setToken(parsedToken);
+      setLoginHref(
+        `/auth/login?redirect=${encodeURIComponent(`${window.location.pathname}${window.location.hash}`)}`
+      );
     }
   }, []);
+
+  useEffect(() => {
+    if (isLoading || !token || user || status !== 'prompt') return;
+    router.replace(loginHref);
+  }, [isLoading, token, user, status, router, loginHref]);
 
   const handleAccept = async (): Promise<void> => {
     if (!token) return;
@@ -96,7 +107,9 @@ export default function WorkspaceInvitationsPage(): React.ReactNode {
           </CardTitle>
           <CardDescription className="text-ink-2">
             {status === 'prompt'
-              ? 'You have been invited to collaborate on an Aegis workspace.'
+              ? !isLoading && !user
+                ? 'Sign in to review this workspace invitation.'
+                : 'You have been invited to collaborate on an Aegis workspace.'
               : status === 'accepted'
               ? 'You now have access to this workspace. Head to your dashboard to view projects.'
               : status === 'declined'
@@ -112,18 +125,28 @@ export default function WorkspaceInvitationsPage(): React.ReactNode {
             </Alert>
           )}
 
-          {!user && status === 'prompt' && (
-            <p className="text-xs text-ink-3">
-              Note: You need to be signed in to accept invitations. If you are not signed in, please{' '}
-              <Link href={`/auth/login?redirect=${encodeURIComponent('/workspaces/invitations' + (typeof window !== 'undefined' ? window.location.hash : ''))}`} className="text-peri-2 underline">
-                sign in first
-              </Link>.
+          {isLoading && status === 'prompt' && (
+            <p className="flex items-center justify-center gap-2 text-sm text-ink-3">
+              <Loader2 className="size-4 animate-spin" /> Checking your session...
             </p>
+          )}
+
+          {!isLoading && !user && status === 'prompt' && token && (
+            <div className="space-y-3">
+              <p className="text-sm text-ink-2">
+                You need to be signed in to accept invitations.
+              </p>
+              <Link href={loginHref}>
+                <Button variant="default" className="w-full">
+                  Sign in to continue
+                </Button>
+              </Link>
+            </div>
           )}
         </CardContent>
 
         <CardFooter className="justify-center gap-3">
-          {status === 'prompt' && token && (
+          {status === 'prompt' && token && user && !isLoading && (
             <>
               <Button
                 variant="default"

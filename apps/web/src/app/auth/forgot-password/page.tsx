@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { ShieldCheck, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, ArrowRight, ArrowLeft, Loader2, CheckCircle2 } from 'lucide-react';
 
 export default function ForgotPasswordPage(): React.ReactNode {
   const [submitting, setSubmitting] = useState(false);
@@ -44,6 +44,19 @@ export default function ForgotPasswordPage(): React.ReactNode {
     return (
       <div className="relative flex min-h-screen items-center justify-center p-6">
         <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
+
+        {/* Auth Navigation */}
+        <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
+          <Link href="/" className="flex items-center gap-2 text-ink hover:text-peri-2 transition-colors">
+            <ShieldCheck className="size-5" />
+            <span className="font-semibold tracking-tight">Aegis</span>
+          </Link>
+          <Link href="/" className="text-sm text-ink-2 hover:text-ink transition-colors flex items-center gap-1">
+            <ArrowLeft className="size-4" />
+            Back to Home
+          </Link>
+        </div>
+
         <Card className="w-full max-w-md border-line/40 shadow-2xl text-center">
           <CardHeader>
             <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-success/20 text-success border border-success/30">
@@ -72,6 +85,18 @@ export default function ForgotPasswordPage(): React.ReactNode {
   return (
     <div className="relative flex min-h-screen items-center justify-center p-6">
       <div className="ambient-scene pointer-events-none fixed inset-0 -z-10" />
+
+      {/* Auth Navigation */}
+      <div className="fixed top-0 left-0 right-0 z-10 flex items-center justify-between px-6 py-4">
+        <Link href="/" className="flex items-center gap-2 text-ink hover:text-peri-2 transition-colors">
+          <ShieldCheck className="size-5" />
+          <span className="font-semibold tracking-tight">Aegis</span>
+        </Link>
+        <Link href="/" className="text-sm text-ink-2 hover:text-ink transition-colors flex items-center gap-1">
+          <ArrowLeft className="size-4" />
+          Back to Home
+        </Link>
+      </div>
 
       <Card className="w-full max-w-md border-line/40 shadow-2xl">
         <CardHeader className="space-y-2 text-center">

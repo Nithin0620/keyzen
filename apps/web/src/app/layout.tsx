@@ -37,7 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${interTight.variable} ${firaCode.variable} ${instrumentSerif.variable}`}
+      className={`${interTight.variable} ${firaCode.variable} ${instrumentSerif.variable} dark`}
     >
       <body className="min-h-screen bg-background font-sans text-foreground antialiased selection:bg-peri/30 selection:text-ink">
         <AppProviders>{children}</AppProviders>

@@ -104,7 +104,11 @@ describe('ProjectsController', () => {
       customPermissions: [],
     });
     await authed().patch(`${project}/members/${USER_ID}`).send({ role: 'ADMIN' }).expect(200);
+    expect(projects.changeMemberRole).toHaveBeenCalledWith(ACTOR_ID, WORKSPACE_ID, PROJECT_ID, USER_ID, {
+      role: 'ADMIN',
+    });
     await authed().delete(`${project}/members/${USER_ID}`).expect(200);
+    expect(projects.removeMember).toHaveBeenCalledWith(ACTOR_ID, WORKSPACE_ID, PROJECT_ID, USER_ID);
   });
 
   it('exposes environment CRUD, duplicate, diff and runtime resolution', async () => {

@@ -81,11 +81,17 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
     try {
       const profile = await apiClient.get<UserProfile>('/auth/me');
       setUser(profile);
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aegis_authenticated', 'true');
+      }
       await loadWorkspaces();
     } catch (err) {
       setUser(null);
       setActiveWorkspace(null);
       setWorkspaces([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('aegis_authenticated');
+      }
       if (err instanceof ApiError && err.status === 401) {
         const isPublic = PUBLIC_PATHS.some((p) => pathname === p || pathname?.startsWith('/auth/'));
         if (!isPublic && pathname) {
@@ -117,6 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }): ReactNode {
       setUser(null);
       setActiveWorkspace(null);
       setWorkspaces([]);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('aegis_authenticated');
+      }
       router.push('/auth/login');
     }
   };

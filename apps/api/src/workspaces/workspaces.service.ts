@@ -396,6 +396,7 @@ export class WorkspacesService {
       email: user?.email ?? '',
       name: user?.name,
       role: member.role,
+      ...(member.createdAt ? { joinedAt: member.createdAt.toISOString() } : {}),
     };
   }
 
