@@ -573,8 +573,6 @@ Open items to resolve before sign-off:
 - There is no container image or production deploy workflow yet; see the deploy runbook.
 - Documentation naming is inconsistent: older pages say `aegis`, but the published npm package is
   `aegis-secrets`.
-- `scripts/verify-sdk-tarball.mjs` still imports the packed module as `aegis`; it should be updated
-  to verify `aegis-secrets` while continuing to check the `aegis` bin alias.
 - `docs/PHASE-13-DASHBOARD.md` lags behind `docs/PHASE-LOG.md` on completed sub-stages.
 - There is no `LICENSE` file or `license` field yet, although the SDK README shows an MIT badge.
 

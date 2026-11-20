@@ -19,6 +19,9 @@
   --glass-gradient: linear-gradient(160deg, rgba(16, 185, 129, 0.14), rgba(5, 150, 105, 0.08));
   --glass-blur: blur(22px) saturate(1.35);
   --ambient-radial: radial-gradient(ellipse at top, var(--violet-deep) 0%, var(--navy) 52%, var(--navy-deep) 100%);
+  --font-sans: 'Inter Tight', system-ui, sans-serif;
+  --font-mono: 'Fira Code', ui-monospace, monospace;
+  --font-serif: 'Instrument Serif', Georgia, serif;
 
   --background: 152 60% 98%;
   --foreground: 152 50% 10%;
