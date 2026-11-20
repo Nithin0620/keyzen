@@ -30,7 +30,7 @@ try {
     process.execPath,
     [
       '-e',
-      'const sdk = require("aegis"); if (typeof sdk.Aegis !== "function") process.exit(1);',
+      'const sdk = require("aegis-secrets"); if (typeof sdk.Aegis !== "function") process.exit(1);',
     ],
     { cwd: appDir, encoding: 'utf8' }
   );
@@ -39,7 +39,7 @@ try {
     [
       '--input-type=module',
       '-e',
-      'import { Aegis } from "aegis"; if (typeof Aegis !== "function") process.exit(1);',
+      'import { Aegis } from "aegis-secrets"; if (typeof Aegis !== "function") process.exit(1);',
     ],
     { cwd: appDir, encoding: 'utf8' }
   );
